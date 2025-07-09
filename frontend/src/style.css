@@ -1,0 +1,88 @@
+/* src/style.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-gray-50 text-gray-800 dark:bg-gray-900 dark:text-gray-200 transition-colors duration-300;
+  }
+
+  /* 基本表單元素的預設樣式 */
+  input, textarea, select {
+    @apply bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500;
+  }
+
+  button {
+    @apply transition-colors duration-200;
+  }
+}
+
+@layer components {
+  /* === Layout & Navigation === */
+  .nav-link {
+    @apply text-gray-600 dark:text-gray-300 text-sm font-medium hover:text-blue-500 dark:hover:text-blue-400 transition-colors;
+  }
+  .login-button {
+    @apply bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold py-2 px-4 rounded-lg shadow-md transition-transform transform hover:scale-105;
+  }
+  .dropdown-item {
+    @apply block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700;
+  }
+  .dropdown-item-danger {
+    @apply block w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700;
+  }
+  .dropdown-header {
+    @apply px-4 py-2 text-xs text-gray-400 uppercase tracking-wider;
+  }
+
+  /* === Forms (Login/Register) === */
+  .form-input-field {
+    @apply appearance-none rounded-none relative block w-full px-3 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white;
+  }
+  .form-submit-button {
+    @apply w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500;
+  }
+
+  /* === Buttons === */
+  .btn-icon {
+    @apply p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors;
+  }
+  .btn-icon-lg {
+    @apply p-3 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-icon-label {
+    @apply flex items-center justify-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  /* === Reading View === */
+  .prose {
+    line-height: 1.8;
+  }
+  .page-select {
+    @apply bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md text-base py-2 px-3;
+  }
+  .setting-item {
+    @apply flex justify-between items-center py-3;
+  }
+  .label {
+    @apply font-semibold text-gray-700 dark:text-gray-300;
+  }
+  .control {
+    @apply flex items-center space-x-3;
+  }
+  .btn-setting {
+    @apply w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600;
+  }
+}
+
+/* === Animations === */
+.slide-up-enter-active,
+.slide-up-leave-active {
+  transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+}
+.slide-up-enter-from,
+.slide-up-leave-to {
+  transform: translateY(100%);
+  opacity: 0;
+}

@@ -1,0 +1,22 @@
+
+module mygunicorn 1.0;
+
+require {
+	type httpd_sys_content_t;
+	type httpd_sys_script_exec_t;
+	type init_t;
+	class file { create execute execute_no_trans ioctl map open read rename write };
+	class lnk_file read;
+	class dir { add_name remove_name };
+	class sock_file { create setattr unlink };
+}
+
+#============= init_t ==============
+allow init_t httpd_sys_content_t:file execute;
+allow init_t httpd_sys_script_exec_t:dir { add_name remove_name };
+allow init_t httpd_sys_script_exec_t:file { create execute execute_no_trans ioctl open read rename write };
+
+#!!!! This avc can be allowed using the boolean 'domain_can_mmap_files'
+allow init_t httpd_sys_script_exec_t:file map;
+allow init_t httpd_sys_script_exec_t:lnk_file read;
+allow init_t httpd_sys_script_exec_t:sock_file { create setattr unlink };
