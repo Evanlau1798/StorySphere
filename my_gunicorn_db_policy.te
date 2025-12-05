@@ -1,0 +1,30 @@
+
+module my_gunicorn_db_policy 1.0;
+
+require {
+	type httpd_sys_script_exec_t;
+	type user_home_t;
+	type http_port_t;
+	type postgresql_port_t;
+	type setroubleshootd_t;
+	type pcp_pmcd_t;
+	type init_t;
+	class file { execute map open read };
+	class tcp_socket name_connect;
+}
+
+#============= init_t ==============
+
+#!!!! This avc can be allowed using the boolean 'nis_enabled'
+allow init_t http_port_t:tcp_socket name_connect;
+allow init_t postgresql_port_t:tcp_socket name_connect;
+allow init_t user_home_t:file { open read };
+
+#============= pcp_pmcd_t ==============
+allow pcp_pmcd_t httpd_sys_script_exec_t:file execute;
+
+#============= setroubleshootd_t ==============
+
+#!!!! This avc can be allowed using the boolean 'domain_can_mmap_files'
+allow setroubleshootd_t httpd_sys_script_exec_t:file map;
+allow setroubleshootd_t httpd_sys_script_exec_t:file execute;

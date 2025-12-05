@@ -60,6 +60,15 @@ class Novel(models.Model):
         COMPLETED = "COMPLETED", "已完結"
         HIATUS = "HIATUS", "休刊中"
 
+    class Category(models.TextChoices):
+        FANTASY = "FANTASY", "奇幻"
+        SCIFI = "SCIFI", "科幻"
+        ROMANCE = "ROMANCE", "言情"
+        URBAN = "URBAN", "都市"
+        HISTORY = "HISTORY", "歷史"
+        MARTIAL = "MARTIAL", "武俠"
+        OTHERS = "OTHERS", "其他"
+
     title = models.CharField(max_length=255, verbose_name="書名")
     author = models.ForeignKey(
         AuthorProfile, 
@@ -70,6 +79,7 @@ class Novel(models.Model):
     description = models.TextField(verbose_name="簡介")
     cover_image = models.ImageField(upload_to='novel_covers/', null=True, blank=True, verbose_name="封面圖片")
     status = models.CharField(max_length=50, choices=Status.choices, default=Status.ONGOING, verbose_name="狀態")
+    category = models.CharField(max_length=50, choices=Category.choices, default=Category.OTHERS, verbose_name="分類")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="建立時間")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="最後更新時間")
     views = models.PositiveIntegerField(default=0, verbose_name="總觀看次數")
@@ -85,6 +95,8 @@ class Volume(models.Model):
         verbose_name="所屬小說"
     )
     title = models.CharField(max_length=255, verbose_name="卷標題")
+    description = models.TextField(verbose_name="簡介", blank=True)
+    cover_image = models.ImageField(upload_to='volume_covers/', null=True, blank=True, verbose_name="卷封面")
     order = models.PositiveIntegerField(verbose_name="卷順序")
 
     class Meta:

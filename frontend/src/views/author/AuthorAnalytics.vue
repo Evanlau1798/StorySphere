@@ -20,7 +20,6 @@
         <img :src="novel.cover_image || '/placeholder.jpg'" alt="Novel Cover" class="w-full h-48 object-cover">
         <div class="p-4">
           <h2 class="text-xl font-bold truncate text-gray-800 dark:text-white" :title="novel.title">{{ novel.title }}</h2>
-          <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">總點擊次數: {{ novel.total_views || 0 }}</p>
         </div>
       </div>
     </div>
@@ -40,6 +39,27 @@
           <!-- Chart will be rendered here -->
           <canvas id="analyticsChart"></canvas>
         </div>
+        <!-- Pagination Controls -->
+        <div v-if="volumes.length > 1" class="flex justify-center items-center space-x-4 mt-4 py-2 border-t border-gray-200 dark:border-gray-700">
+          <button 
+            @click="changeVolume(-1)" 
+            :disabled="currentVolumeIndex === 0"
+            class="px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded-lg disabled:opacity-50"
+          >
+            上一卷
+          </button>
+          <span class="text-gray-600 dark:text-gray-300">
+            {{ currentVolumeTitle || 'Loading...' }}
+          </span>
+          <button 
+            @click="changeVolume(1)" 
+            :disabled="currentVolumeIndex === volumes.length - 1"
+            class="px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded-lg disabled:opacity-50"
+          >
+            下一卷
+          </button>
+        </div>
+
       </div>
     </div>
 
@@ -72,50 +92,90 @@ const fetchNovels = async () => {
   }
 };
 
+const currentVolumeIndex = ref(0);
+const volumes = ref<{ title: string, chapters: { title: string, views: number }[] }[]>([]);
+const currentVolumeTitle = ref('');
+
 const selectNovel = async (novel: Novel) => {
   selectedNovel.value = novel;
-  await nextTick(); // Wait for the DOM to update
+  await nextTick();
+  currentVolumeIndex.value = 0; 
   renderChart(novel);
 };
 
 const renderChart = async (novel: Novel) => {
   try {
-    // Fetch detailed chapter analytics for the selected novel
     const response = await apiClient.get(`/novels/${novel.id}/analytics/`);
-    const analyticsData = response.data;
-
-    const ctx = document.getElementById('analyticsChart') as HTMLCanvasElement;
-    if (!ctx) return;
-
-    if (chartInstance) {
-      chartInstance.destroy();
+    // Assuming backend returns { volumes: [{ title: '...', chapters: [...] }, ...], ... }
+    if (response.data.volumes && response.data.volumes.length > 0) {
+        volumes.value = response.data.volumes;
+    } else {
+        // Fallback for flat structure if backend update hasn't propagated or for old novels
+        // Construct a pseudo-volume
+        volumes.value = [{
+            title: '全章節',
+            chapters: response.data.labels.map((label: string, i: number) => ({
+                title: label,
+                views: response.data.data[i]
+            }))
+        }];
     }
-
-    chartInstance = new Chart(ctx, {
-      type: 'bar',
-      data: {
-        labels: analyticsData.labels, // e.g., ['Chapter 1', 'Chapter 2', ...]
-        datasets: [{
-          label: '各章節觀看次數',
-          data: analyticsData.data, // e.g., [120, 190, ...]
-          backgroundColor: 'rgba(54, 162, 235, 0.6)',
-          borderColor: 'rgba(54, 162, 235, 1)',
-          borderWidth: 1
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-          y: {
-            beginAtZero: true
-          }
-        }
-      }
-    });
+    
+    updateChartData();
   } catch (err) {
     console.error('Failed to render chart', err);
-    // Handle error in UI
+  }
+};
+
+const updateChartData = () => {
+  const ctx = document.getElementById('analyticsChart') as HTMLCanvasElement;
+  if (!ctx) return;
+
+  if (chartInstance) {
+    chartInstance.destroy();
+  }
+
+  const currentVolume = volumes.value[currentVolumeIndex.value];
+  currentVolumeTitle.value = currentVolume.title;
+
+  const volumeLabels = currentVolume.chapters.map(c => c.title);
+  const volumeData = currentVolume.chapters.map(c => c.views);
+
+  chartInstance = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: volumeLabels,
+      datasets: [{
+        label: '各章節觀看次數',
+        data: volumeData,
+        backgroundColor: 'rgba(54, 162, 235, 0.6)',
+        borderColor: 'rgba(54, 162, 235, 1)',
+        borderWidth: 1
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        y: {
+          beginAtZero: true
+        }
+      },
+      plugins: {
+        title: {
+          display: true,
+          text: currentVolume.title
+        }
+      }
+    }
+  });
+};
+
+const changeVolume = (delta: number) => {
+  const newIndex = currentVolumeIndex.value + delta;
+  if (newIndex >= 0 && newIndex < volumes.value.length) {
+    currentVolumeIndex.value = newIndex;
+    updateChartData();
   }
 };
 

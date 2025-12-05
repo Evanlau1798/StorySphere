@@ -4,8 +4,11 @@
 @tailwind utilities;
 
 @layer base {
+  html {
+    @apply bg-gray-50 dark:bg-gray-900 transition-colors duration-300;
+  }
   body {
-    @apply bg-gray-50 text-gray-800 dark:bg-gray-900 dark:text-gray-200 transition-colors duration-300;
+    @apply min-h-screen bg-gray-50 text-gray-800 dark:bg-gray-900 dark:text-gray-200 transition-colors duration-300;
   }
 
   /* 基本表單元素的預設樣式 */
@@ -85,4 +88,24 @@
 .slide-up-leave-to {
   transform: translateY(100%);
   opacity: 0;
+}
+
+/* Fade animation */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+/* Navbar Auto-hide logic */
+/* Applies to the header within the app layout */
+body.hide-navbar header {
+  transform: translateY(-100%);
+}
+
+header {
+  transition: transform 0.3s ease-in-out, background-color 0.3s ease, color 0.3s ease;
 }

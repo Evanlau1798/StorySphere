@@ -8,7 +8,7 @@
           最後儲存於: {{ lastSaved }}
         </span>
         <input type="file" ref="fileInput" @change="handleFileUpload" accept=".txt" class="hidden" />
-        <button type="button" @click="triggerFileInput" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">從txt檔匯入</button>
+        <button type="button" @click="publishChapter" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600" :disabled="isSaving">{{ isSaving ? '發布中...' : '儲存並發布' }}</button>
       </div>
     </div>
     <form @submit.prevent="publishChapter">
@@ -27,14 +27,17 @@
         <label for="content" class="block font-bold mb-1">內容</label>
         <RichTextEditor v-model="chapter.content" />
       </div>
-      <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600" :disabled="isSaving">{{ isSaving ? '發布中...' : '儲存並發布' }}</button>
+      <div class="flex justify-end items-center space-x-4 mt-4">
+        <button v-if="isEditorEmpty" type="button" @click="triggerFileInput" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">從txt檔匯入</button>
+        <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600" :disabled="isSaving">{{ isSaving ? '發布中...' : '儲存並發布' }}</button>
+      </div>
     </form>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import apiClient from '../../api/axios';
 import RichTextEditor from '../../components/RichTextEditor.vue';
 import type { Chapter, Volume } from '../../types';
@@ -55,6 +58,12 @@ const selectedVolumeId = ref<number | null>(null);
 const isSaving = ref(false);
 const lastSaved = ref<string | null>(null);
 let autoSaveTimer: number | null = null;
+
+const isEditorEmpty = computed(() => {
+  const content = chapter.value.content || '';
+  const textOnly = content.replace(/<[^>]*>/g, '').trim();
+  return textOnly.length === 0;
+});
 
 const fetchVolumes = async () => {
   try {
@@ -187,6 +196,7 @@ watch([() => chapter.value.title, () => chapter.value.content], () => {
 });
 
 onMounted(() => {
+  const route = useRoute();
   fetchVolumes();
   if (isEditing.value && props.chapterId) {
     apiClient.get(`/novels/${props.novelId}/chapters/${props.chapterId}/`).then(response => {
@@ -196,6 +206,11 @@ onMounted(() => {
       chapter.value = fetchedChapter;
       selectedVolumeId.value = response.data.volume;
     });
+  } else {
+    const volumeIdFromQuery = route.query.volumeId;
+    if (volumeIdFromQuery) {
+      selectedVolumeId.value = Number(volumeIdFromQuery);
+    }
   }
 });
 

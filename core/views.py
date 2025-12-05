@@ -5,6 +5,7 @@ from rest_framework import generics, viewsets, status, serializers
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.filters import SearchFilter, OrderingFilter
 from django.db.models import Sum, Count, Prefetch
 from django.db import models
 from rest_framework.decorators import action, api_view, permission_classes
@@ -27,7 +28,8 @@ from .serializers import (
     ReadingProgressSerializer,   # 用於書架與閱讀進度
     ImageUploadSerializer,
     CustomTokenObtainPairSerializer, # 引入新的 Serializer
-    VolumeSerializer # 引入 VolumeSerializer
+    VolumeSerializer, # 引入 VolumeSerializer
+    VolumeEditSerializer # 引入 VolumeEditSerializer
 )
 
 from django.core.files.storage import default_storage
@@ -136,8 +138,13 @@ class VolumeViewSet(viewsets.ModelViewSet):
     處理所有與分卷相關的操作。
     """
     queryset = Volume.objects.all()
-    serializer_class = VolumeSerializer
     permission_classes = [IsAuthorOrReadOnly]
+    parser_classes = [MultiPartParser, FormParser]  # 支援檔案上傳
+
+    def get_serializer_class(self):
+        if self.action in ['update', 'partial_update']:
+            return VolumeEditSerializer
+        return VolumeSerializer
 
     def get_queryset(self):
         """確保分卷是從正確的小說中獲取的。"""
@@ -159,10 +166,24 @@ class NovelViewSet(viewsets.ModelViewSet):
     處理所有與小說相關的操作。
     """
     queryset = Novel.objects.all().order_by('-updated_at')
+    filter_backends = [SearchFilter, OrderingFilter]
+    search_fields = ['title', 'author__pen_name', 'author__user__username', 'description']
+    ordering_fields = ['views', 'updated_at', 'created_at']
 
     def get_queryset(self):
         queryset = super().get_queryset()
 
+        # Custom filtering (since django-filter is not installed)
+        category = self.request.query_params.get('category')
+        status = self.request.query_params.get('status')
+        ordering = self.request.query_params.get('ordering')
+
+        if category and category != 'ALL':
+            queryset = queryset.filter(category=category)
+        
+        if status and status != 'ALL':
+            queryset = queryset.filter(status=status)
+            
         # If 'my_novels' query parameter is true and user is authenticated, filter by author
         if self.request.query_params.get('my_novels') == 'true' and self.request.user.is_authenticated:
             if hasattr(self.request.user, 'author_profile'):
@@ -178,12 +199,12 @@ class NovelViewSet(viewsets.ModelViewSet):
         return queryset.prefetch_related(
             Prefetch(
                 'volumes',
-                queryset=Volume.objects.order_by('order'),
+                queryset=Volume.objects.order_by('order').select_related('novel'),
                 to_attr='volumes_ordered'  # Use a different attribute to avoid conflicts
             ),
             Prefetch(
                 'chapters',
-                queryset=Chapter.objects.filter(volume__isnull=True).order_by('order'),
+                queryset=Chapter.objects.filter(volume__isnull=True, status=Chapter.Status.PUBLISHED).order_by('order'),
                 to_attr='chapters_without_volume'
             )
         ).annotate(
@@ -231,6 +252,13 @@ class NovelViewSet(viewsets.ModelViewSet):
         else:
             raise serializers.ValidationError("只有作者才能發表小說。")
 
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        instance.views += 1
+        instance.save(update_fields=['views'])
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def novel_analytics(request, pk):
@@ -242,14 +270,52 @@ def novel_analytics(request, pk):
     if novel.author.user != request.user:
         return Response({'detail': '沒有權限。'}, status=status.HTTP_403_FORBIDDEN)
 
-    chapters_analytics = Chapter.objects.filter(novel=novel).order_by('order')
+    chapters_analytics = Chapter.objects.filter(novel=novel).select_related('volume').order_by('order')
     
+    # Group by Volume
+    volumes_data = []
+    current_volume = None
+    current_volume_chapters = []
+
+    for chapter in chapters_analytics:
+        vol_title = chapter.volume.title if chapter.volume else "未分卷"
+        
+        if current_volume != vol_title:
+            if current_volume is not None:
+                volumes_data.append({
+                    'title': current_volume,
+                    'chapters': current_volume_chapters
+                })
+            current_volume = vol_title
+            current_volume_chapters = []
+        
+        current_volume_chapters.append({
+            'title': chapter.title,
+            'views': chapter.views
+        })
+    
+    # Append the last volume
+    if current_volume is not None:
+         volumes_data.append({
+            'title': current_volume,
+            'chapters': current_volume_chapters
+        })
+    # Handle case with only "No Volume" chapters if loop ran
+    elif current_volume is None and len(chapters_analytics) > 0:
+         volumes_data.append({
+            'title': "未分卷",
+            'chapters': [{'title': c.title, 'views': c.views} for c in chapters_analytics]
+        })
+
+
+    # Backward compatibility (flat list)
     labels = [chapter.title for chapter in chapters_analytics]
     data = [chapter.views for chapter in chapters_analytics]
 
     return Response({
-        'labels': labels,
+        'labels': labels, 
         'data': data,
+        'volumes': volumes_data
     })
 
 class ChapterViewSet(viewsets.ModelViewSet):
@@ -272,6 +338,10 @@ class ChapterViewSet(viewsets.ModelViewSet):
         novel_instance = chapter_instance.novel # Get the associated Novel object
         novel_instance.views += 1
         novel_instance.save(update_fields=['views'])
+
+        # Increment views on the Chapter itself
+        chapter_instance.views += 1
+        chapter_instance.save(update_fields=['views'])
 
         # Serialize the Chapter instance
         serializer = self.get_serializer(chapter_instance)

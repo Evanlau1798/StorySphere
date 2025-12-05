@@ -20,7 +20,9 @@ export interface Volume {
   id: number;
   title: string;
   order: number;
-  chapters: Chapter[]; // 卷下的章節列表
+  chapters: Chapter[];
+  description: string;
+  cover_image: string | null;
 }
 
 export interface Novel {
@@ -32,11 +34,13 @@ export interface Novel {
   updated_at: string;
   created_at: string;
   // 將 author 的類型改為 AuthorSummary
-  author: AuthorSummary; 
+  author: AuthorSummary;
   volumes: Volume[]; // 將 chapters 替換為 volumes
   chapters_without_volume?: Chapter[];
-  total_views?: number;
+  views: number; // Changed from total_views to match backend default view field or annotated one
   author_name?: string;
+  category: string;
+  latest_chapter?: string;
 }
 
 // API 回應的分頁格式
@@ -56,12 +60,13 @@ export interface AuthorSummary {
 
 // 用於作者頁面中顯示的、簡化版的小說資訊
 export interface SimpleNovel {
-    id: number;
-    title: string;
-    cover_image: string | null;
-    status: 'ONGOING' | 'COMPLETED' | 'HIATUS';
-    updated_at: string;
-    description: string;
+  id: number;
+  title: string;
+  cover_image: string | null;
+  status: 'ONGOING' | 'COMPLETED' | 'HIATUS';
+  updated_at: string;
+  description: string;
+  category: string;
 }
 
 // 作者公開頁面的完整資料
@@ -78,12 +83,12 @@ export interface AuthorProfile {
 
 // 用於表示當前登入使用者的完整個人資料
 export interface UserProfile {
-    user_id?: number;
-    username?: string;
-    pen_name?: string;
-    bio?: string;
-    avatar: string | null;
-    role?: 'READER' | 'AUTHOR' | 'ADMIN';
+  user_id?: number;
+  username?: string;
+  pen_name?: string;
+  bio?: string;
+  avatar: string | null;
+  role?: 'READER' | 'AUTHOR' | 'ADMIN';
 }
 
 // 新增 ReadingProgress 介面

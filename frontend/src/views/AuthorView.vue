@@ -46,7 +46,7 @@ const fetchAuthorProfile = async (authorId: string) => {
   isLoading.value = true;
   error.value = null;
   try {
-    const response = await apiClient.get<AuthorProfile>(`/users/author/${authorId}/`);
+    const response = await apiClient.get<AuthorProfile>(`/authors/${authorId}/`);
     const profileData = response.data;
 
     // The API returns SimpleNovel objects. We map them to full Novel objects
@@ -61,6 +61,9 @@ const fetchAuthorProfile = async (authorId: string) => {
       volumes: [], // Add missing volumes property
       created_at: '', // Add other missing properties to satisfy the Novel type
       chapters_without_volume: [],
+      views: 0,
+      category: simpleNovel.category || 'OTHERS',
+      latest_chapter: '',
     }));
 
     author.value = {
