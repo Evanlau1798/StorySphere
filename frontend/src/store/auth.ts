@@ -6,11 +6,11 @@ import { useRouter } from 'vue-router';
 
 // 定義使用者資訊的介面
 interface User {
-  user_id: number;
-  username: string;
-  role: 'READER' | 'AUTHOR';
-  avatar: string | null;
-  pen_name: string | null;
+    user_id: number;
+    username: string;
+    role: 'READER' | 'AUTHOR' | 'ADMIN';
+    avatar: string | null;
+    pen_name: string | null;
 }
 
 export const useAuthStore = defineStore('auth', () => {

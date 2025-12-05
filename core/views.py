@@ -15,7 +15,7 @@ import logging
 
 # --- Local Imports ---
 from .models import CustomUser, AuthorProfile, Novel, Chapter, ReadingProgress, Volume # 引入 ReadingProgress 和 Volume
-from .permissions import IsAuthorUserForWrite, IsAuthorOrReadOnly
+from .permissions import IsAuthorUserForWrite, IsAuthorOrReadOnly, IsAdminRole
 from .serializers import (
     UserRegistrationSerializer,
     UserProfileSerializer,     # 用於個人設定頁
@@ -426,3 +426,76 @@ class ReadingProgressViewSet(viewsets.ModelViewSet):
     def perform_destroy(self, instance):
         """從書架移除。"""
         instance.delete()
+
+
+class AdminViewSet(viewsets.ViewSet):
+    permission_classes = [IsAdminRole]
+
+    @action(detail=False, methods=['get'])
+    def stats(self, request):
+        user_count = CustomUser.objects.count()
+        novel_count = Novel.objects.count()
+        chapter_count = Chapter.objects.count()
+        # Sum of all novel views
+        total_views = Novel.objects.aggregate(total_views=Sum('views'))['total_views'] or 0
+        
+        # Simple server load mock
+        import os
+        try:
+            load_avg = os.getloadavg() # returns (1, 5, 15) min load
+        except:
+            load_avg = (0, 0, 0)
+            
+        return Response({
+            'user_count': user_count,
+            'novel_count': novel_count,
+            'chapter_count': chapter_count,
+            'total_views': total_views,
+            'server_load': load_avg
+        })
+
+    @action(detail=False, methods=['get'])
+    def users(self, request):
+        # Allow filtering/searching
+        query = request.query_params.get('q', '')
+        users = CustomUser.objects.all().order_by('id')
+        if query:
+            users = users.filter(models.Q(username__icontains=query) | models.Q(email__icontains=query))
+        
+        # Manual serialization for simplicity in this admin view
+        data = []
+        for u in users[:100]: # limit to 100
+            data.append({
+                'id': u.id,
+                'username': u.username,
+                'email': u.email,
+                'role': u.role,
+                'date_joined': u.date_joined,
+                'is_active': u.is_active,
+                'last_login': u.last_login
+            })
+        return Response(data)
+
+    @action(detail=True, methods=['patch'])
+    def update_role(self, request, pk=None):
+        try:
+            user = CustomUser.objects.get(pk=pk)
+        except CustomUser.DoesNotExist:
+            return Response({'detail': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        new_role = request.data.get('role')
+        if new_role not in CustomUser.Role.values:
+             return Response({'detail': 'Invalid role'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # PROTECTION: Cannot change role of User ID 1
+        if user.id == 1:
+            return Response({'detail': 'Permission Denied: Cannot modify the Super Admin (ID 1).'}, status=status.HTTP_403_FORBIDDEN)
+            
+        user.role = new_role
+        user.save()
+        
+        # If promoting to AUTHOR, ensure profile exists
+        if new_role == CustomUser.Role.AUTHOR:
+             AuthorProfile.objects.get_or_create(user=user)
+             
+        return Response({'status': 'success', 'role': user.role, 'username': user.username})

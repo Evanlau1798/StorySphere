@@ -66,6 +66,14 @@
                     <div class="border-t border-gray-200 dark:border-gray-700 my-1"></div>
                   </div>
 
+                  <!-- 管理員區 -->
+                  <div v-if="isAdmin">
+                    <p class="dropdown-header">管理專區</p>
+                    <router-link to="/admin" class="dropdown-item" @click="closeUserMenu">管理員後台</router-link>
+                    <div class="border-t border-gray-200 dark:border-gray-700 my-1"></div>
+                  </div>
+
+                  <!-- 作者區 -->
                   <!-- 作者區 -->
                   <div v-if="isAuthor">
                     <p class="dropdown-header">作者區</p>
@@ -116,6 +124,7 @@ const isUserMenuOpen = ref(false);
 const isDarkMode = ref(document.documentElement.classList.contains('dark'));
 
 const isAuthor = computed(() => authStore.isAuthenticated && authStore.user?.role === 'AUTHOR');
+const isAdmin = computed(() => authStore.isAuthenticated && authStore.user?.role === 'ADMIN');
 
 const toggleUserMenu = () => {
   isUserMenuOpen.value = !isUserMenuOpen.value;

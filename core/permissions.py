@@ -38,3 +38,10 @@ class IsAuthorUserForWrite(BasePermission):
         
         # 如果是寫入請求，檢查使用者是否已登入且角色為 'AUTHOR'
         return request.user and request.user.is_authenticated and request.user.role == 'AUTHOR'
+
+class IsAdminRole(BasePermission):
+    """
+    只允許角色為 'ADMIN' 的使用者訪問。
+    """
+    def has_permission(self, request, view):
+        return request.user and request.user.is_authenticated and request.user.role == 'ADMIN'

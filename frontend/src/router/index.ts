@@ -25,6 +25,10 @@ const LeaderboardView = () => import('@/views/LeaderboardView.vue');
 const UpdatesView = () => import('@/views/UpdatesView.vue');
 const RecentViewedView = () => import('@/views/RecentViewedView.vue');
 
+const AdminLayout = () => import('@/views/admin/AdminLayout.vue');
+const AdminDashboard = () => import('@/views/admin/AdminDashboard.vue');
+const UserManagement = () => import('@/views/admin/UserManagement.vue');
+
 const routes: Array<RouteRecordRaw> = [
   {
     path: '/',
@@ -136,6 +140,23 @@ const routes: Array<RouteRecordRaw> = [
         component: AuthorAnalytics
       }
     ]
+  },
+  {
+    path: '/admin',
+    component: AdminLayout,
+    meta: { requiresAuth: true, requiresAdmin: true },
+    children: [
+      {
+        path: '',
+        name: 'AdminDashboard',
+        component: AdminDashboard
+      },
+      {
+        path: 'users',
+        name: 'UserManagement',
+        component: UserManagement
+      }
+    ]
   }
 ];
 
@@ -155,11 +176,14 @@ router.beforeEach((to, _from, next) => {
   const authStore = useAuthStore();
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth);
   const requiresAuthor = to.matched.some(record => record.meta.requiresAuthor);
+  const requiresAdmin = to.matched.some(record => record.meta.requiresAdmin);
 
   if (requiresAuth && !authStore.isAuthenticated) {
     next({ name: 'Login', query: { redirect: to.fullPath } });
   } else if (requiresAuthor && authStore.user?.role !== 'AUTHOR') {
     // 如果需要作者權限但使用者不是作者，可以導向到首頁或一個錯誤頁面
+    next({ name: 'Home' });
+  } else if (requiresAdmin && authStore.user?.role !== 'ADMIN') {
     next({ name: 'Home' });
   } else {
     next();

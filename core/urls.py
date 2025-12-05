@@ -12,6 +12,7 @@ from .views import (
     MyTokenObtainPairView, # Re-import our custom view
     novel_analytics,
     log_frontend_error, # Import the new view
+    AdminViewSet,
 )
 from rest_framework_simplejwt.views import TokenRefreshView
 from rest_framework_nested import routers
@@ -19,6 +20,7 @@ from rest_framework_nested import routers
 router = routers.DefaultRouter()
 router.register(r'novels', NovelViewSet, basename='novel')
 router.register(r'reading-progress', ReadingProgressViewSet, basename='reading-progress') # 註冊 ReadingProgressViewSet
+router.register(r'admin', AdminViewSet, basename='admin')
 
 novels_router = routers.NestedDefaultRouter(router, r'novels', lookup='novel')
 novels_router.register(r'volumes', VolumeViewSet, basename='novel-volumes')
