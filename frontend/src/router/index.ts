@@ -6,7 +6,8 @@ import { useAuthStore } from '../store/auth';
 
 // 引入所有頁面組件
 // 引入所有頁面組件 - 改為 Lazy Loading
-const HomeView = () => import('@/views/HomeView.vue');
+const IntroView = () => import('@/views/IntroView.vue');
+// const HomeView = () => import('@/views/HomeView.vue'); // Unused
 const LoginView = () => import('@/views/LoginView.vue');
 const RegisterView = () => import('@/views/RegisterView.vue');
 const NovelDetailView = () => import('@/views/NovelDetailView.vue');
@@ -28,7 +29,7 @@ const routes: Array<RouteRecordRaw> = [
   {
     path: '/',
     name: 'Home',
-    component: HomeView
+    component: IntroView // Changed from HomeView to IntroView
   },
   {
     path: '/explore',

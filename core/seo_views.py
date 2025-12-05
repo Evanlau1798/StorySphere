@@ -183,8 +183,8 @@ def packet_general_seo(request):
     
     meta_map = {
         '/': {
-            'title': 'StroySphere - 您的線上小說閱讀平台',
-            'description': '提供各類原創小說、輕小說在線閱讀。奇幻、科幻、言情、都市應有盡有。'
+            'title': 'StorySphere - 探索無限的故事宇宙',
+            'description': 'StorySphere 是一個專為小說愛好者打造的閱讀平台。在這裡，您可以發現各類原創小說，與作者互動，並建立屬於您的個人書架。'
         },
         '/explore': {
             'title': '探索小說 - StroySphere',
