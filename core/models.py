@@ -172,3 +172,13 @@ class ReadingProgress(models.Model):
 
     def __str__(self):
         return f"{self.user.username} is reading {self.novel.title}"
+
+@receiver(post_save, sender=Chapter)
+@receiver(models.signals.post_delete, sender=Chapter)
+def update_novel_timestamp(sender, instance, **kwargs):
+    """
+    當章節被儲存或刪除時，更新所屬小說的 updated_at 時間。
+    這樣可以確保小說在列表排序時能反映出最新的變動。
+    """
+    # 重新儲存 Novel 實例會觸發 auto_now=True 更新 updated_at
+    instance.novel.save()

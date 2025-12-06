@@ -244,7 +244,9 @@ const PageBreak = Node.create({
 
     parseHTML() {
         return [
-            { tag: 'hr[data-type="page-break"]' },
+            // High priority to override default HorizontalRule
+            { tag: 'hr[data-type="page-break"]', priority: 60 },
+            { tag: 'hr.page-break-marker', priority: 60 },
         ]
     },
 

@@ -4,7 +4,7 @@
     <header class="bg-white/80 dark:bg-gray-800/80 backdrop-blur-md shadow-md sticky top-0 z-[100]">
       <nav class="container mx-auto px-4 sm:px-6 lg:px-8 py-3 flex justify-between items-center">
         <!-- Logo & 站名 -->
-        <router-link to="/" class="text-2xl font-bold text-gray-800 dark:text-white transition-colors hover:text-blue-500">
+        <router-link :to="authStore.isAuthenticated ? '/explore' : '/'" class="text-2xl font-bold text-gray-800 dark:text-white transition-colors hover:text-blue-500">
           小說天地
         </router-link>
 
@@ -145,16 +145,6 @@ const updateThemeColor = (isDark: boolean) => {
   if (themeColorMeta) {
     themeColorMeta.setAttribute('content', color);
   } else {
-    // If multiple tags exist (static ones), this might filter one or add.
-    // Usually browser takes the first one or active one.
-    // If prefer-color-scheme is active, static tags work.
-    // BUT we have manual toggle.
-    // When manual toggle is active, we should force a specific single meta tag?
-    // Or just update the one that corresponds?
-    // Let's simplified: If we have manual toggle, we might need to overwrite.
-    // Actually, simple solution: find any 'theme-color' and set it.
-    // Or better: Remove the static ones and manage JS?
-    // Or just updating the first one works for most browsers.
     let meta = document.querySelector('meta[name="theme-color"]');
     if (!meta) {
         meta = document.createElement('meta');
