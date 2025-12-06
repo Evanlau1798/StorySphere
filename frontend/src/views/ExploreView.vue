@@ -19,24 +19,20 @@
           </svg>
         </div>
 
-        <!-- Filters -->
-        <div class="flex gap-2 overflow-x-auto pb-2 md:pb-0">
-          <select v-model="selectedCategory" @change="fetchNovels" class="px-4 py-2 border rounded-lg bg-white dark:bg-gray-800 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
-            <option value="ALL">所有分類</option>
-            <option value="FANTASY">奇幻</option>
-            <option value="SCIFI">科幻</option>
-            <option value="ROMANCE">言情</option>
-            <option value="URBAN">都市</option>
-            <option value="HISTORY">歷史</option>
-            <option value="MARTIAL">武俠</option>
-            <option value="OTHERS">其他</option>
-          </select>
+        <!-- Filter Buttons (Trigger Modals) -->
+        <div class="grid grid-cols-3 gap-2 md:flex md:w-auto">
+          
+          <button @click="showCategoryModal = true" class="btn-filter whitespace-nowrap">
+            {{ getCategoryName(selectedCategory) }}
+          </button>
 
-          <select v-model="selectedStatus" @change="fetchNovels" class="px-4 py-2 border rounded-lg bg-white dark:bg-gray-800 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
-            <option value="ALL">所有狀態</option>
-            <option value="ONGOING">連載中</option>
-            <option value="COMPLETED">已完結</option>
-          </select>
+          <button @click="showStatusModal = true" class="btn-filter whitespace-nowrap">
+            {{ getStatusName(selectedStatus) }}
+          </button>
+
+          <button @click="showSortModal = true" class="btn-filter whitespace-nowrap">
+            {{ getSortName(selectedSort) }}
+          </button>
         </div>
       </div>
     </div>
@@ -53,6 +49,55 @@
     <div v-else class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
       <NovelCard v-for="novel in novels" :key="novel.id" :novel="novel" />
     </div>
+
+    <!-- Category Modal -->
+    <Modal :show="showCategoryModal" @close="showCategoryModal = false">
+        <template #header>選擇分類</template>
+        <template #body>
+            <div class="grid grid-cols-3 gap-3 p-1">
+                <button v-for="(name, code) in categoryMap" :key="code"
+                    @click="selectCategory(code as string)"
+                    class="btn-option"
+                    :class="selectedCategory === code ? 'active' : ''"
+                >
+                    {{ name }}
+                </button>
+            </div>
+        </template>
+    </Modal>
+
+    <!-- Status Modal -->
+    <Modal :show="showStatusModal" @close="showStatusModal = false">
+        <template #header>選擇狀態</template>
+        <template #body>
+             <div class="flex flex-col gap-2 p-1">
+                <button v-for="(name, code) in statusMap" :key="code"
+                    @click="selectStatus(code as string)"
+                    class="btn-option w-full"
+                    :class="selectedStatus === code ? 'active' : ''"
+                >
+                    {{ name }}
+                </button>
+             </div>
+        </template>
+    </Modal>
+
+     <!-- Sort Modal -->
+    <Modal :show="showSortModal" @close="showSortModal = false">
+        <template #header>排序方式</template>
+        <template #body>
+             <div class="flex flex-col gap-2 p-1">
+                <button v-for="(name, code) in sortMap" :key="code"
+                    @click="selectSort(code as string)"
+                    class="btn-option w-full"
+                    :class="selectedSort === code ? 'active' : ''"
+                >
+                    {{ name }}
+                </button>
+             </div>
+        </template>
+    </Modal>
+
   </div>
 </template>
 
@@ -61,15 +106,68 @@ import { ref, onMounted } from 'vue';
 import apiClient from '../api/axios';
 import type { Novel } from '../types';
 import NovelCard from '../components/NovelCard.vue';
+import Modal from '../components/Modal.vue';
 
 const novels = ref<Novel[]>([]);
 const isLoading = ref(true);
 const searchQuery = ref('');
 const selectedCategory = ref('ALL');
 const selectedStatus = ref('ALL');
+const selectedSort = ref('-updated_at'); // Default sort
 let searchTimeout: ReturnType<typeof setTimeout>;
 
-// Removed unused getCategoryLabel and formatDate functions as they are handled by NovelCard or not used.
+// Modal Control
+const showCategoryModal = ref(false);
+const showStatusModal = ref(false);
+const showSortModal = ref(false);
+
+// Maps
+const categoryMap = {
+    'ALL': '所有分類',
+    'FANTASY': '奇幻',
+    'SCIFI': '科幻',
+    'ROMANCE': '言情',
+    'URBAN': '都市',
+    'HISTORY': '歷史',
+    'MARTIAL': '武俠',
+    'YURI': '百合',
+    'OTHERS': '其他'
+};
+
+const statusMap = {
+    'ALL': '所有狀態',
+    'ONGOING': '連載中',
+    'COMPLETED': '已完結'
+};
+
+const sortMap = {
+    '-updated_at': '最新更新',
+    '-views': '最多觀看',
+    '-bookmark_count': '最多收藏'
+};
+
+const getCategoryName = (code: string) => categoryMap[code as keyof typeof categoryMap] || code;
+const getStatusName = (code: string) => statusMap[code as keyof typeof statusMap] || code;
+const getSortName = (code: string) => sortMap[code as keyof typeof sortMap] || code;
+
+const selectCategory = (code: string) => {
+    selectedCategory.value = code;
+    showCategoryModal.value = false;
+    fetchNovels();
+};
+
+const selectStatus = (code: string) => {
+    selectedStatus.value = code;
+    showStatusModal.value = false;
+    fetchNovels();
+};
+
+const selectSort = (code: string) => {
+    selectedSort.value = code;
+    showSortModal.value = false;
+    fetchNovels();
+};
+
 
 const fetchNovels = async () => {
   isLoading.value = true;
@@ -78,6 +176,7 @@ const fetchNovels = async () => {
     if (searchQuery.value) params.search = searchQuery.value;
     if (selectedCategory.value !== 'ALL') params.category = selectedCategory.value;
     if (selectedStatus.value !== 'ALL') params.status = selectedStatus.value;
+    if (selectedSort.value) params.ordering = selectedSort.value;
     
     const response = await apiClient.get<Novel[]>('/novels/', { params });
     // DRF may return paginated data { results: [...], count: ... } or just [...]
@@ -99,3 +198,33 @@ const handleSearch = () => {
 
 onMounted(fetchNovels);
 </script>
+
+<style scoped>
+.btn-filter {
+    @apply h-10 px-4 flex items-center justify-center rounded-lg transition-colors duration-200 text-sm font-medium;
+    @apply bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600;
+    @apply text-gray-700 dark:text-gray-200;
+    @apply focus:outline-none focus:ring-2 focus:ring-blue-500;
+}
+
+.btn-option {
+    @apply p-2 rounded-lg text-sm font-medium transition-colors text-center;
+    @apply bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200;
+    @apply hover:bg-gray-200 dark:hover:bg-gray-600;
+}
+
+.btn-option.active {
+    @apply bg-blue-500 text-white;
+}
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+.scrollbar-hide::-webkit-scrollbar {
+    display: none;
+}
+
+/* Hide scrollbar for IE, Edge and Firefox */
+.scrollbar-hide {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+}
+</style>

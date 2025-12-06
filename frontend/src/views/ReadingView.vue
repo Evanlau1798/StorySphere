@@ -1,16 +1,16 @@
 <template>
   <div 
-    class="min-h-screen transition-colors duration-300"
+    class="min-h-screen"
     :style="{ backgroundColor: settings.bgColor, color: settings.fontColor }"
   >
-      <div :class="[containerWidthClass, 'mx-auto transition-all duration-300']">
+      <div :class="[containerWidthClass, 'mx-auto']">
       <div v-if="isLoading" class="text-center py-20">載入中...</div>
       <div v-else-if="error" class="text-center py-20 text-red-500">{{ error }}</div>
       
       <div v-else-if="chapter">
         <!-- 頂部導覽 (黏性) -->
         <div 
-          class="sticky top-0 z-10 transition-colors duration-300 shadow-sm"
+          class="sticky top-0 z-10 shadow-sm transition-transform duration-300"
           :style="{ backgroundColor: settings.themeName === 'dark' ? 'rgba(31, 41, 55, 0.95)' : settings.bgColor }"
         >
           <div class="p-2 sm:p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
@@ -83,7 +83,7 @@
         <!-- 小說內容 -->
         <div class="p-6 sm:p-8 lg:p-10">
           <div 
-            class="prose max-w-none whitespace-pre-wrap transition-all duration-300"
+            class="prose max-w-none whitespace-pre-wrap"
             :style="{ fontSize: `${settings.fontSize}px` }"
             v-html="displayedContent"
           >
@@ -91,22 +91,41 @@
         </div>
 
         <!-- 底部翻頁 -->
-        <div class="p-4 flex justify-between items-center">
-          <button @click="goBackward" :disabled="isFirstPage && !chapter.previous_chapter_id" class="btn-nav-lg min-w-[100px]">
+        <div class="p-4 flex justify-between items-center gap-2">
+          <button @click="goBackward" :disabled="isFirstPage && !chapter.previous_chapter_id" class="btn-nav-lg flex-1">
             {{ isFirstPage ? '上一章' : '上一頁' }}
           </button>
-          <select v-model="currentPage" class="page-select mx-4 flex-grow sm:flex-grow-0">
-            <option v-for="pageNumber in totalPages" :key="pageNumber" :value="pageNumber">
-              第 {{ pageNumber }} / {{ totalPages }} 頁
-            </option>
-          </select>
-          <button @click="goForward" :disabled="isLastPage && !chapter.next_chapter_id" class="btn-nav-lg min-w-[100px]">
+          
+          <button @click="openPageSelector" class="btn-nav-lg flex-[2] font-medium border-l border-r border-gray-300 dark:border-gray-600">
+             第 {{ currentPage }} / {{ totalPages }} 頁
+          </button>
+
+          <button @click="goForward" :disabled="isLastPage && !chapter.next_chapter_id" class="btn-nav-lg flex-1">
             {{ isLastPage ? '下一章' : '下一頁' }}
           </button>
         </div>
       </div>
     </div>
 
+    <!-- Page Selection Modal -->
+    <Modal :show="showPageSelector" @close="showPageSelector = false">
+      <template #header>跳轉頁面</template>
+      <template #body>
+        <div class="grid grid-cols-4 sm:grid-cols-5 gap-3 max-h-[60vh] overflow-y-auto p-1">
+          <button 
+            v-for="pageNumber in totalPages" 
+            :key="pageNumber" 
+            @click="selectPage(pageNumber)"
+            class="p-2 rounded-lg text-sm font-medium transition-colors"
+            :class="pageNumber === currentPage 
+              ? 'bg-blue-500 text-white' 
+              : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'"
+          >
+            {{ pageNumber }}
+          </button>
+        </div>
+      </template>
+    </Modal>
 
   </div>
 </template>
@@ -117,6 +136,8 @@ import { useRouter } from 'vue-router';
 import apiClient from '../api/axios';
 import { eventBus, EventType } from '../composables/useEventBus';
 import { useReadingProgressStore } from '@/store/readingProgress';
+import Modal from '../components/Modal.vue';
+import { useAutoHideNavbar } from '../composables/useAutoHideNavbar';
 
 const { emit } = eventBus;
 
@@ -144,6 +165,7 @@ const isLoading = ref(true);
 const error = ref<string | null>(null);
 
 const showSettingsPanel = ref(false);
+const showPageSelector = ref(false); // New state for modal
 
 // Scroll restoration state
 const shouldRestoreScroll = ref(true); // Default to true (for refresh/initial load)
@@ -153,13 +175,19 @@ const restoreToBottom = ref(false); // Flag for previous chapter navigation
 const paragraphs = ref<string[]>([]);
 const currentPage = ref(1);
 const paragraphsPerPage = 30;
+const isManualPagination = ref(false); // Flag for manual page breaks
 
 const totalPages = computed(() => {
   if (paragraphs.value.length === 0) return 1;
+  if (isManualPagination.value) return paragraphs.value.length;
   return Math.ceil(paragraphs.value.length / paragraphsPerPage);
 });
 
 const displayedContent = computed(() => {
+  if (isManualPagination.value) {
+      // In manual mode, paragraphs array ARE the pages
+      return paragraphs.value[currentPage.value - 1] || '';
+  }
   const start = (currentPage.value - 1) * paragraphsPerPage;
   const end = start + paragraphsPerPage;
   return paragraphs.value.slice(start, end).join('');
@@ -242,27 +270,45 @@ const restoreProgress = async () => {
     }
 
   } catch (e) {
-    console.error("Failed to read progress from sessionStorage:", e);
+    console.error("Failed to read progress to sessionStorage:", e);
   }
 };
-
-// Handle manual scroll to bottom on prev chapter
-// Handle manual scroll to bottom on prev chapter is now handled inside restoreProgress to race conditions
-// watch(() => router.currentRoute.value.params.chapterId, ... removed ...);
 
 // --- Content Parsing ---
 const parseChapterContent = (content: string) => {
   const parser = new DOMParser();
   const doc = parser.parseFromString(content, 'text/html');
-  const pTags = Array.from(doc.body.querySelectorAll('p'));
   
-  if (pTags.length > 0) {
-    paragraphs.value = pTags.map(p => p.outerHTML);
+  // Custom Page Breaks Priority
+  const breaks = doc.querySelectorAll('hr[data-type="page-break"]');
+  
+  if (breaks.length > 0) {
+      isManualPagination.value = true;
+      // Remove unused rawHtml if not used
+      // const rawHtml = content; 
+ 
+      // doc.body.innerHTML might have changed format slightly by parser, but usually safer for consistency
+      // However, spliting by the tag needs to match.
+      // Let's use doc.body.innerHTML and a regex that matches valid HR
+      
+      const segments = doc.body.innerHTML.split(/<hr[^>]*data-type="page-break"[^>]*>/i);
+      paragraphs.value = segments.map(seg => seg.trim()).filter(seg => seg.length > 0);
+      
+      if (paragraphs.value.length === 0) {
+           paragraphs.value = [doc.body.innerHTML]; // Fallback if split failed weirdly
+      }
   } else {
-    paragraphs.value = content.split(/<br\s*\/?>\s*<br\s*\/?>/i).filter(p => p.trim() !== '').map(p => `<p>${p}</p>`);
-    if (paragraphs.value.length === 0 && content.trim() !== '') {
-        paragraphs.value = [`<p>${content}</p>`];
-    }
+      isManualPagination.value = false;
+      const pTags = Array.from(doc.body.querySelectorAll('p'));
+      
+      if (pTags.length > 0) {
+        paragraphs.value = pTags.map(p => p.outerHTML);
+      } else {
+        paragraphs.value = content.split(/<br\s*\/?>\s*<br\s*\/?>/i).filter(p => p.trim() !== '').map(p => `<p>${p}</p>`);
+        if (paragraphs.value.length === 0 && content.trim() !== '') {
+            paragraphs.value = [`<p>${content}</p>`];
+        }
+      }
   }
 };
 
@@ -321,22 +367,43 @@ const changeFontSize = (delta: number) => {
 
 const changeBgColor = (themeName: string, emitEvent = true) => {
   if (themeName in colorThemes) {
-    const theme = colorThemes[themeName as keyof typeof colorThemes];
-    settings.themeName = themeName;
-    settings.bgColor = theme.bg;
-    settings.fontColor = theme.font;
-    saveSettings();
+    
+    const applyTheme = () => {
+        const theme = colorThemes[themeName as keyof typeof colorThemes];
+        settings.themeName = themeName;
+        settings.bgColor = theme.bg;
+        settings.fontColor = theme.font;
+        saveSettings();
 
-    const isDark = themeName === 'dark' || themeName === 'gray';
-    if (isDark) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
+        const isDark = themeName === 'dark' || themeName === 'gray';
+        
+        document.documentElement.classList.add('no-transition');
+
+        if (isDark) {
+            document.documentElement.classList.add('dark');
+            localStorage.setItem('theme', 'dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+            localStorage.setItem('theme', 'light');
+        }
+
+        void document.documentElement.offsetHeight; 
+        
+        setTimeout(() => {
+            document.documentElement.classList.remove('no-transition');
+        }, 0);
+
+        if (emitEvent) {
+          emit(EventType.ThemeChanged, isDark ? 'dark' : 'light');
+        }
+    };
+
+    if (document.startViewTransition && emitEvent) {
+         document.startViewTransition(() => {
+             applyTheme();
+         });
     } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
-    }
-    if (emitEvent) {
-      emit(EventType.ThemeChanged, isDark ? 'dark' : 'light');
+        applyTheme();
     }
   }
 };
@@ -371,7 +438,7 @@ const goToChapter = (direction: 'prev' | 'next') => {
     } else {
         shouldRestoreScroll.value = false; // Next chapter should start at top, disable restore
         // Force reset
-        window.scrollTo(0, 0);
+        window.scrollTo({ top: 0, behavior: 'instant' });
     }
     router.push({ name: 'Reading', params: { novelId: props.novelId, chapterId: targetChapterId.toString() } });
   }
@@ -383,6 +450,7 @@ const isLastPage = computed(() => currentPage.value === totalPages.value);
 const goForward = () => {
   if (!isLastPage.value) {
     currentPage.value++;
+    window.scrollTo({ top: 0, behavior: 'instant' });
   } else if (chapter.value && chapter.value.next_chapter_id) {
     goToChapter('next');
   }
@@ -391,7 +459,10 @@ const goForward = () => {
 const goBackward = () => {
   if (!isFirstPage.value) {
       currentPage.value--;
-      window.scrollTo({ top: document.body.scrollHeight, behavior: 'auto' }); // Scroll to bottom of prev page
+      // User requested scroll to bottom on prev page
+      nextTick(() => {
+         window.scrollTo({ top: document.body.scrollHeight, behavior: 'instant' }); 
+      });
   } else if (chapter.value && chapter.value.previous_chapter_id) {
     goToChapter('prev');
   }
@@ -401,36 +472,33 @@ const toggleSettingsPanel = () => {
   showSettingsPanel.value = !showSettingsPanel.value;
 };
 
-// --- Auto-Hide Navbar Logic ---
-let lastScrollY = 0;
-const handleNavbarScroll = () => {
-  const currentScrollY = window.scrollY;
-  // Scroll Down -> Hide (add class 'hide-navbar')
-  // Scroll Up -> Show (remove class 'hide-navbar')
-  if (currentScrollY > lastScrollY && currentScrollY > 100) {
-    document.body.classList.add('hide-navbar');
-  } else {
-    document.body.classList.remove('hide-navbar');
-  }
-  lastScrollY = currentScrollY;
+// --- New Modal Logic ---
+const openPageSelector = () => {
+  showPageSelector.value = true;
 };
 
+const selectPage = (page: number) => {
+  currentPage.value = page;
+  showPageSelector.value = false;
+  window.scrollTo({ top: 0, behavior: 'instant' }); // Scroll to top when page changes via modal
+};
+
+
+// --- Auto-Hide Navbar Logic ---
+useAutoHideNavbar();
 
 // --- 生命週期鉤子 ---
 onMounted(() => {
   loadSettings();
   fetchChapter(props.novelId, props.chapterId);
   window.addEventListener('scroll', handleScroll);
-  window.addEventListener('scroll', handleNavbarScroll); // Add navbar scroll listener
   window.addEventListener('beforeunload', saveProgress);
 });
 
 onUnmounted(() => {
   saveProgress();
   window.removeEventListener('scroll', handleScroll);
-  window.removeEventListener('scroll', handleNavbarScroll);
   window.removeEventListener('beforeunload', saveProgress);
-  document.body.classList.remove('hide-navbar'); // Ensure navbar is shown when leaving
 });
 
 watch(
@@ -446,7 +514,8 @@ watch(
 watch(currentPage, (newPage, oldPage) => {
     if (newPage !== oldPage) {
         saveProgress();
-        window.scrollTo(0, 0);
+        // Scroll logic is now handled in actions (goForward/goBackward/selectPage)
+        // to support different behaviors (top vs bottom)
     }
 });
 
@@ -477,16 +546,10 @@ watch(currentPage, (newPage, oldPage) => {
 }
 
 .btn-nav-lg {
-  @apply px-4 py-2 sm:px-6 sm:py-2 rounded-lg transition-colors duration-200 text-base sm:text-lg whitespace-nowrap;
+  @apply h-12 flex items-center justify-center rounded-lg transition-colors duration-200 text-sm sm:text-base;
   @apply bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600;
   @apply text-gray-700 dark:text-gray-200;
   @apply disabled:opacity-50 disabled:cursor-not-allowed;
-}
-
-.page-select {
-    @apply bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm;
-    @apply py-2 px-3 text-sm font-medium text-gray-700 dark:text-gray-200;
-    @apply focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500;
 }
 
 /* 動畫效果 */

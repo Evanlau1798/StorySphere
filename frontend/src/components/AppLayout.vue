@@ -1,8 +1,7 @@
-<!-- src/components/AppLayout.vue -->
 <template>
   <div class="min-h-screen flex flex-col font-sans bg-gray-50 dark:bg-gray-900">
     <!-- 導覽列 -->
-    <header class="bg-white/80 dark:bg-gray-800/80 backdrop-blur-md shadow-md sticky top-0 z-50">
+    <header class="bg-white/80 dark:bg-gray-800/80 backdrop-blur-md shadow-md sticky top-0 z-[100]">
       <nav class="container mx-auto px-4 sm:px-6 lg:px-8 py-3 flex justify-between items-center">
         <!-- Logo & 站名 -->
         <router-link to="/" class="text-2xl font-bold text-gray-800 dark:text-white transition-colors hover:text-blue-500">
@@ -138,16 +137,71 @@ router.afterEach(() => {
   closeUserMenu();
 });
 
-const toggleDarkMode = () => {
-  const newIsDark = !isDarkMode.value;
-  isDarkMode.value = newIsDark;
-  if (newIsDark) {
-    document.documentElement.classList.add('dark');
-    localStorage.setItem('theme', 'dark');
+const updateThemeColor = (isDark: boolean) => {
+  const themeColorMeta = document.querySelector('meta[name="theme-color"]');
+  // Dark mode bg color matches bg-gray-900 (#111827)
+  const color = isDark ? '#111827' : '#ffffff'; 
+  
+  if (themeColorMeta) {
+    themeColorMeta.setAttribute('content', color);
   } else {
-    document.documentElement.classList.remove('dark');
-    localStorage.setItem('theme', 'light');
+    // If multiple tags exist (static ones), this might filter one or add.
+    // Usually browser takes the first one or active one.
+    // If prefer-color-scheme is active, static tags work.
+    // BUT we have manual toggle.
+    // When manual toggle is active, we should force a specific single meta tag?
+    // Or just update the one that corresponds?
+    // Let's simplified: If we have manual toggle, we might need to overwrite.
+    // Actually, simple solution: find any 'theme-color' and set it.
+    // Or better: Remove the static ones and manage JS?
+    // Or just updating the first one works for most browsers.
+    let meta = document.querySelector('meta[name="theme-color"]');
+    if (!meta) {
+        meta = document.createElement('meta');
+        meta.setAttribute('name', 'theme-color');
+        document.head.appendChild(meta);
+    }
+    meta.setAttribute('content', color);
   }
+};
+
+
+const toggleDarkMode = () => {
+  const switchTheme = () => {
+    const newIsDark = !isDarkMode.value;
+    isDarkMode.value = newIsDark;
+    
+    // Disable transitions during the switch preventing "patchy" updates
+    document.documentElement.classList.add('no-transition');
+
+    if (newIsDark) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+    
+    updateThemeColor(newIsDark); // Dynamic update
+
+    // Force repaint
+    void document.documentElement.offsetHeight; 
+
+    // Re-enable transitions
+    setTimeout(() => {
+        document.documentElement.classList.remove('no-transition');
+    }, 0);
+  };
+
+  if (!document.startViewTransition) {
+    switchTheme();
+    return;
+  }
+
+  // Use View Transitions API for a smooth whole-page cross-fade
+  document.startViewTransition(() => {
+      switchTheme();
+  });
 };
 
 const handleLogout = () => {
@@ -160,13 +214,19 @@ const handleLogout = () => {
 
 onMounted(() => {
   const savedTheme = localStorage.getItem('theme');
+  let currentIsDark = false;
   if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
     isDarkMode.value = true;
     document.documentElement.classList.add('dark');
+    currentIsDark = true;
   }
+  
+  updateThemeColor(currentIsDark); // Init state
 
   on(EventType.ThemeChanged, (theme) => {
-    isDarkMode.value = theme === 'dark';
+    const isDark = theme === 'dark';
+    isDarkMode.value = isDark;
+    updateThemeColor(isDark);
   });
 
   document.addEventListener('click', handleClickOutside);

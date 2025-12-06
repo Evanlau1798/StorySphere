@@ -5,10 +5,17 @@
 
 @layer base {
   html {
-    @apply bg-gray-50 dark:bg-gray-900 transition-colors duration-300;
+    /* Force background color to prevent white flash during resize/keyboard open */
+    @apply bg-white transition-colors duration-300;
+    color-scheme: light dark;
+  }
+  
+  html.dark {
+      @apply bg-gray-900;
   }
   body {
-    @apply min-h-screen bg-gray-50 text-gray-800 dark:bg-gray-900 dark:text-gray-200 transition-colors duration-300;
+    @apply min-h-screen bg-gray-50 text-gray-800 dark:bg-gray-900 dark:text-gray-200;
+    /* Removed global transition-colors */
   }
 
   /* 基本表單元素的預設樣式 */
@@ -19,6 +26,12 @@
   button {
     @apply transition-colors duration-200;
   }
+}
+
+/* Utility to disable transitions globally during state changes */
+.no-transition,
+.no-transition * {
+  transition: none !important;
 }
 
 @layer components {
@@ -107,5 +120,6 @@ body.hide-navbar header {
 }
 
 header {
-  transition: transform 0.3s ease-in-out, background-color 0.3s ease, color 0.3s ease;
+  transition: transform 0.3s ease-in-out; 
+  /* Removed background-color and color transition to avoid theme switch lag */
 }

@@ -1,11 +1,16 @@
 <!-- src/views/author/AuthorChapterEdit.vue -->
 <template>
-  <div>
-    <div class="flex justify-between items-center mb-6">
+  <div class="edit-page-container">
+    <div class="flex justify-between items-center mb-6 pt-safe-top transition-all duration-200">
       <h1 class="text-2xl font-bold">{{ isEditing ? '編輯章節' : '新增章節' }}</h1>
       <div class="flex items-center space-x-4">
-        <span v-if="lastSaved" class="text-sm text-gray-500 dark:text-gray-400">
-          最後儲存於: {{ lastSaved }}
+        <span v-if="false" class="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
+           <!-- Last saved is now in Editor Status Bar, hiding here or keeping as fallback? 
+                User requested Status Bar in Editor. 
+                But let's keep it here strictly if needed, or remove? 
+                The user said "Status Bar... display auto-save hint... permanent...".
+                RichTextEditor handling it is better. I will pass the prop.
+                I can hide it here to avoid duplication. -->
         </span>
         <input type="file" ref="fileInput" @change="handleFileUpload" accept=".txt" class="hidden" />
         <button type="button" @click="publishChapter" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600" :disabled="isSaving">{{ isSaving ? '發布中...' : '儲存並發布' }}</button>
@@ -23,11 +28,12 @@
           <option v-for="volume in volumes" :key="volume.id" :value="volume.id">{{ volume.title }}</option>
         </select>
       </div>
-      <div class="mb-4">
-        <label for="content" class="block font-bold mb-1">內容</label>
-        <RichTextEditor v-model="chapter.content" />
+      <div class="mb-4 editor-wrapper">
+        <span class="block font-bold mb-1">內容</span>
+        <!-- Passing raw Date object for LastSaved -->
+        <RichTextEditor v-model="chapter.content" :last-saved="lastSaved" />
       </div>
-      <div class="flex justify-end items-center space-x-4 mt-4">
+      <div class="flex justify-end items-center space-x-4 mt-4 pb-20">
         <button v-if="isEditorEmpty" type="button" @click="triggerFileInput" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">從txt檔匯入</button>
         <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600" :disabled="isSaving">{{ isSaving ? '發布中...' : '儲存並發布' }}</button>
       </div>
@@ -42,6 +48,7 @@ import apiClient from '../../api/axios';
 import RichTextEditor from '../../components/RichTextEditor.vue';
 import type { Chapter, Volume } from '../../types';
 import { eventBus, EventType } from '../../composables/useEventBus';
+import { useAutoHideNavbar } from '../../composables/useAutoHideNavbar';
 
 const props = defineProps({ 
   novelId: { type: String, required: true },
@@ -49,6 +56,7 @@ const props = defineProps({
 });
 
 const router = useRouter();
+useAutoHideNavbar();
 const isEditing = computed(() => !!props.chapterId);
 
 const chapter = ref<Partial<Chapter> & { content?: string }>({ title: '', content: '', status: 'DRAFT' });
@@ -56,7 +64,7 @@ const fileInput = ref<HTMLInputElement | null>(null);
 const volumes = ref<Volume[]>([]);
 const selectedVolumeId = ref<number | null>(null);
 const isSaving = ref(false);
-const lastSaved = ref<string | null>(null);
+const lastSaved = ref<Date | null>(null); // Date Object
 let autoSaveTimer: number | null = null;
 
 const isEditorEmpty = computed(() => {
@@ -68,7 +76,7 @@ const isEditorEmpty = computed(() => {
 const fetchVolumes = async () => {
   try {
     const response = await apiClient.get(`/novels/${props.novelId}/volumes/`);
-    volumes.value = response.data.results || response.data; // Handle both paginated and non-paginated responses
+    volumes.value = response.data.results || response.data; 
   } catch (error) {
     console.error('Failed to fetch volumes', error);
     eventBus.emit(EventType.ShowAlert, {
@@ -89,15 +97,49 @@ const handleFileUpload = (event: Event) => {
   if (file) {
     const reader = new FileReader();
     reader.onload = (e) => {
-      chapter.value.content = (e.target?.result as string).replace(/\n/g, '<br>');
+      const text = e.target?.result as string;
+      // Convert newlines to paragraphs (User Requirement)
+      if (text) {
+          const paragraphs = text.split(/\r?\n/)
+              .filter(line => line.trim() !== '')
+              .map(line => `<p>${line.trim()}</p>`)
+              .join('');
+          chapter.value.content = paragraphs;
+      }
     };
     reader.readAsText(file);
   }
 };
 
+// === Validation Logic ===
+const validateContent = (): boolean => {
+    const content = chapter.value.content || '';
+    if (!content.includes('data-type="page-break"')) {
+        return true;
+    }
+
+    const segments = content.split(/<hr[^>]*data-type="page-break"[^>]*>/i);
+    for (let i = 0; i < segments.length; i++) {
+        const segment = segments[i];
+        // Count paragraphs
+        const pCount = (segment.match(/<p>/gi) || []).length + (segment.match(/<br>/gi) || []).length;
+        
+        if (pCount > 50) {
+             eventBus.emit(EventType.ShowAlert, {
+                 type: 'error',
+                 title: '段落過長',
+                 message: `第 ${i+1} 頁內容包含約 ${pCount} 個段落 (上限 50)。請增加分頁點以優化閱讀體驗。`
+             });
+             return false;
+        }
+    }
+    return true;
+};
+
 const saveDraft = async () => {
-  // If there's no title, don't save.
   if (!chapter.value.title?.trim()) return;
+
+  if (!validateContent()) return;
 
   isSaving.value = true;
   try {
@@ -131,7 +173,7 @@ const saveDraft = async () => {
     const updatedChapter = response.data;
     updatedChapter.content = updatedChapter.content || '';
     chapter.value = { ...chapter.value, ...updatedChapter };
-    lastSaved.value = new Date().toLocaleTimeString();
+    lastSaved.value = new Date(); // Update Time
 
   } catch (error) {
     console.error('Failed to save draft', error);
@@ -147,11 +189,12 @@ const saveDraft = async () => {
 };
 
 const publishChapter = async () => {
+  if (!validateContent()) return;
+
   isSaving.value = true;
   try {
     if (autoSaveTimer) clearTimeout(autoSaveTimer);
-    await saveDraft();
-
+    
     const payload = {
       title: chapter.value.title,
       content: chapter.value.content,
@@ -201,7 +244,6 @@ onMounted(() => {
   if (isEditing.value && props.chapterId) {
     apiClient.get(`/novels/${props.novelId}/chapters/${props.chapterId}/`).then(response => {
       const fetchedChapter = response.data;
-      // Ensure content is a string to prevent v-model errors
       fetchedChapter.content = fetchedChapter.content || '';
       chapter.value = fetchedChapter;
       selectedVolumeId.value = response.data.volume;
@@ -215,3 +257,11 @@ onMounted(() => {
 });
 
 </script>
+
+<style scoped>
+/* Safe area padding when Navbar is Hidden */
+/* Global selector for body.hide-navbar */
+:global(body.hide-navbar) .pt-safe-top {
+    padding-top: max(20px, env(safe-area-inset-top)); 
+}
+</style>

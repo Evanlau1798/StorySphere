@@ -67,6 +67,7 @@ class Novel(models.Model):
         URBAN = "URBAN", "都市"
         HISTORY = "HISTORY", "歷史"
         MARTIAL = "MARTIAL", "武俠"
+        YURI = "YURI", "百合"
         OTHERS = "OTHERS", "其他"
 
     title = models.CharField(max_length=255, verbose_name="書名")

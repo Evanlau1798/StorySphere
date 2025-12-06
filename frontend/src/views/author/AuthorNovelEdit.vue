@@ -60,6 +60,7 @@
                   <option value="URBAN">都市</option>
                   <option value="HISTORY">歷史</option>
                   <option value="MARTIAL">武俠</option>
+                  <option value="YURI">百合</option>
                   <option value="OTHERS">其他</option>
                 </select>
               </div>
@@ -213,9 +214,12 @@ import apiClient from '../../api/axios';
 import type { Novel, Chapter, Volume } from '../../types';
 import { eventBus, EventType } from '../../composables/useEventBus';
 import Modal from '@/components/Modal.vue'; // Import Modal
+import { useAutoHideNavbar } from '../../composables/useAutoHideNavbar';
 
 const route = useRoute();
 const router = useRouter();
+
+useAutoHideNavbar();
 
 const novelId = computed(() => route.params.novelId as string);
 const isEditing = computed(() => !!novelId.value && novelId.value !== 'new');

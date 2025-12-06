@@ -57,7 +57,8 @@ const isLoading = ref(true);
 const getCategoryLabel = (category: string) => {
   const map: Record<string, string> = {
     'FANTASY': '奇幻', 'SCIFI': '科幻', 'ROMANCE': '言情',
-    'URBAN': '都市', 'HISTORY': '歷史', 'MARTIAL': '武俠', 'OTHERS': '其他'
+    'URBAN': '都市', 'HISTORY': '歷史', 'MARTIAL': '武俠',
+    'YURI': '百合', 'OTHERS': '其他'
   };
   return map[category] || '其他';
 };

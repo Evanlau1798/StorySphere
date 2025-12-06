@@ -168,7 +168,7 @@ class NovelViewSet(viewsets.ModelViewSet):
     queryset = Novel.objects.all().order_by('-updated_at')
     filter_backends = [SearchFilter, OrderingFilter]
     search_fields = ['title', 'author__pen_name', 'author__user__username', 'description']
-    ordering_fields = ['views', 'updated_at', 'created_at']
+    ordering_fields = ['views', 'updated_at', 'created_at', 'bookmark_count']
 
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -209,7 +209,8 @@ class NovelViewSet(viewsets.ModelViewSet):
             )
         ).annotate(
             # The calculation of total views still only calculates published ones
-            total_views=Sum('chapters__views', filter=models.Q(chapters__status=Chapter.Status.PUBLISHED), default=0)
+            total_views=Sum('chapters__views', filter=models.Q(chapters__status=Chapter.Status.PUBLISHED), default=0),
+            bookmark_count=Count('reading_progresses')
         )
 
     def get_serializer_context(self):
