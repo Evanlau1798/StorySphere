@@ -462,6 +462,12 @@ const hasManualBreaks = computed(() => {
     return found;
 });
 
+// Helper to check if a paragraph node is empty
+const isEmptyParagraphNode = (node: any): boolean => {
+    if (node.type.name !== 'paragraph') return false;
+    return node.textContent.trim() === '';
+};
+
 const calculatePageInfo = () => {
     if (!editor.value) return;
     
@@ -472,9 +478,14 @@ const calculatePageInfo = () => {
         });
         totalPagesRel.value = breaks + 1; // n breaks = n+1 pages
     } else {
-        // Auto mode (paragraph count)
-        const pCount = editor.value.state.doc.childCount; // Top level blocks
-        totalPagesRel.value = Math.max(1, Math.ceil(pCount / 30));
+        // Auto mode: count only non-empty paragraphs
+        let contentParagraphCount = 0;
+        editor.value.state.doc.forEach((node) => {
+            if (!isEmptyParagraphNode(node)) {
+                contentParagraphCount++;
+            }
+        });
+        totalPagesRel.value = Math.max(1, Math.ceil(contentParagraphCount / 30));
     }
     calculateCurrentPage();
 };
@@ -494,8 +505,16 @@ const calculateCurrentPage = () => {
         });
         currentPageRel.value = page;
     } else {
-        const index = $pos.index(0); 
-        currentPageRel.value = Math.floor(index / 30) + 1;
+        // Count only non-empty paragraphs up to cursor position
+        let contentIndex = 0;
+        const cursorIndex = $pos.index(0);
+        for (let i = 0; i <= cursorIndex && i < editor.value.state.doc.childCount; i++) {
+            const node = editor.value.state.doc.child(i);
+            if (!isEmptyParagraphNode(node)) {
+                contentIndex++;
+            }
+        }
+        currentPageRel.value = Math.floor((contentIndex - 1) / 30) + 1;
     }
 };
 

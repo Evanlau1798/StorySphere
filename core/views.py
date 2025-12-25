@@ -4,7 +4,7 @@
 from rest_framework import generics, viewsets, status, serializers
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.parsers import JSONParser, MultiPartParser, FormParser
 from rest_framework.filters import SearchFilter, OrderingFilter
 from django.db.models import Sum, Count, Prefetch
 from django.db import models
@@ -139,7 +139,7 @@ class VolumeViewSet(viewsets.ModelViewSet):
     """
     queryset = Volume.objects.all()
     permission_classes = [IsAuthorOrReadOnly]
-    parser_classes = [MultiPartParser, FormParser]  # 支援檔案上傳
+    parser_classes = [JSONParser, MultiPartParser, FormParser]  # 支援 JSON 和檔案上傳
 
     def get_serializer_class(self):
         if self.action in ['update', 'partial_update']:
@@ -255,8 +255,9 @@ class NovelViewSet(viewsets.ModelViewSet):
 
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
-        instance.views += 1
-        instance.save(update_fields=['views'])
+        # Use update() to avoid triggering save() and auto_now
+        Novel.objects.filter(pk=instance.pk).update(views=models.F('views') + 1)
+        instance.views += 1 
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
 
@@ -335,14 +336,16 @@ class ChapterViewSet(viewsets.ModelViewSet):
     def retrieve(self, request, *args, **kwargs):
         chapter_instance = self.get_object() # This gets the Chapter object
 
-        # Increment views on the associated Novel
-        novel_instance = chapter_instance.novel # Get the associated Novel object
-        novel_instance.views += 1
-        novel_instance.save(update_fields=['views'])
+        # Increment views on the associated Novel safely
+        Novel.objects.filter(pk=chapter_instance.novel.pk).update(views=models.F('views') + 1)
 
-        # Increment views on the Chapter itself
+        # Increment views on the Chapter itself safely
+        Chapter.objects.filter(pk=chapter_instance.pk).update(views=models.F('views') + 1)
+        
+        # Manually update local instance for response if needed (though response uses serialized data from DB usually, 
+        # get_object might use cached if not careful, but typically fine. 
+        # Actually serializer uses the instance passed to it.)
         chapter_instance.views += 1
-        chapter_instance.save(update_fields=['views'])
 
         # Serialize the Chapter instance
         serializer = self.get_serializer(chapter_instance)

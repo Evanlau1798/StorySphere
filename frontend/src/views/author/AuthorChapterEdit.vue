@@ -98,13 +98,27 @@ const handleFileUpload = (event: Event) => {
     const reader = new FileReader();
     reader.onload = (e) => {
       const text = e.target?.result as string;
-      // Convert newlines to paragraphs (User Requirement)
+      // Convert newlines to paragraphs
+      // Preserve leading whitespace (full-width and regular spaces)
+      // Use empty paragraph for blank lines (balanced visual spacing)
       if (text) {
-          const paragraphs = text.split(/\r?\n/)
-              .filter(line => line.trim() !== '')
-              .map(line => `<p>${line.trim()}</p>`)
-              .join('');
-          chapter.value.content = paragraphs;
+          const lines = text.split(/\r?\n/);
+          let htmlContent = '';
+          for (const line of lines) {
+            if (line.trim() === '') {
+              // Empty line = paragraph separator (minimal height)
+              htmlContent += '<p></p>';
+            } else {
+              // Preserve leading whitespace by NOT trimming
+              // Escape basic HTML to prevent issues, but preserve spaces
+              const escapedLine = line
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+              htmlContent += `<p>${escapedLine}</p>`;
+            }
+          }
+          chapter.value.content = htmlContent;
       }
     };
     reader.readAsText(file);
@@ -137,7 +151,17 @@ const validateContent = (): boolean => {
 };
 
 const saveDraft = async () => {
+  // Ensure novelId exists before attempting to save
+  if (!props.novelId) {
+    console.warn('Cannot save draft: novelId is undefined');
+    return;
+  }
+  // Skip if title is empty
   if (!chapter.value.title?.trim()) return;
+  
+  // Skip if content is empty (backend requires content)
+  const contentText = (chapter.value.content || '').replace(/<[^>]*>/g, '').trim();
+  if (!contentText) return;
 
   if (!validateContent()) return;
 

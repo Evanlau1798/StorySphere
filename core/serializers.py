@@ -137,7 +137,7 @@ class ChapterSerializer(serializers.ModelSerializer):
     """用於在小說詳情頁顯示章節列表"""
     class Meta:
         model = Chapter
-        fields = ['id', 'title', 'order', 'published_at', 'volume', 'status']
+        fields = ['id', 'title', 'order', 'published_at', 'updated_at', 'volume', 'status']
 
 class ChapterDetailSerializer(serializers.ModelSerializer):
     """用於顯示單一章節的詳細內容，包含內容本身"""
@@ -146,7 +146,7 @@ class ChapterDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Chapter
-        fields = ['id', 'title', 'content', 'order', 'published_at', 'views', 'novel', 'volume', 'status', 'previous_chapter_id', 'next_chapter_id']
+        fields = ['id', 'title', 'content', 'order', 'published_at', 'updated_at', 'views', 'novel', 'volume', 'status', 'previous_chapter_id', 'next_chapter_id']
 
     def get_previous_chapter_id(self, obj):
         # We need to find the previous published chapter in the same novel
@@ -170,7 +170,7 @@ class NestedChapterSerializer(serializers.ModelSerializer):
     """用於在 Volume 內嵌套顯示章節"""
     class Meta:
         model = Chapter
-        fields = ['id', 'title', 'order', 'published_at']
+        fields = ['id', 'title', 'order', 'published_at', 'updated_at']
 
 class VolumeSerializer(serializers.ModelSerializer):
     """Serializes a volume and its chapters, filtering chapters based on context."""
@@ -211,13 +211,14 @@ class NovelDetailSerializer(serializers.ModelSerializer):
     volumes = VolumeSerializer(source='volumes_ordered', many=True, read_only=True)
     chapters_without_volume = serializers.SerializerMethodField()
     latest_chapter = serializers.SerializerMethodField()
+    latest_chapter_updated_at = serializers.SerializerMethodField()
 
     class Meta:
         model = Novel
         fields = [
             'id', 'title', 'author', 'description', 'cover_image', 
             'status', 'category', 'created_at', 'updated_at', 'views', 
-            'volumes', 'chapters_without_volume', 'latest_chapter'
+            'volumes', 'chapters_without_volume', 'latest_chapter', 'latest_chapter_updated_at'
         ]
 
     def get_chapters_without_volume(self, obj):
@@ -242,11 +243,14 @@ class NovelDetailSerializer(serializers.ModelSerializer):
         return serializer.data
 
     def get_latest_chapter(self, obj):
-        # Efficiently get latest chapter. 
-        # Since we might not want to query DB N times for a list, ideally this should be annotated.
-        # But for now, let's just query.
-        last_chapter = obj.chapters.filter(status=Chapter.Status.PUBLISHED).order_by('-published_at').first()
+        # Efficiently get latest chapter title.
+        last_chapter = obj.chapters.filter(status=Chapter.Status.PUBLISHED).order_by('-updated_at').first()
         return last_chapter.title if last_chapter else None
+
+    def get_latest_chapter_updated_at(self, obj):
+        # Efficiently get latest chapter timestamp.
+        last_chapter = obj.chapters.filter(status=Chapter.Status.PUBLISHED).order_by('-updated_at').first()
+        return last_chapter.updated_at if last_chapter else None
 
 class NovelListSerializer(NovelDetailSerializer):
     """Inherits from NovelDetailSerializer to ensure consistent chapter filtering."""
@@ -267,7 +271,7 @@ class ChapterEditSerializer(serializers.ModelSerializer):
     """用於作者編輯章節"""
     class Meta:
         model = Chapter
-        fields = ['id', 'title', 'content', 'order', 'volume', 'status']
+        fields = ['id', 'title', 'content', 'order', 'volume', 'status', 'updated_at']
         read_only_fields = ['id', 'order']
 
 

@@ -10,6 +10,7 @@ export interface Chapter {
   title: string;
   order: number;
   published_at: string;
+  updated_at: string; // 新增：最後更新時間
   volume?: number | null; // 新增：章節所屬的卷 ID (可選，因為章節可能不屬於任何卷)
   status?: 'DRAFT' | 'PUBLISHED';
   content?: string;
@@ -41,6 +42,7 @@ export interface Novel {
   author_name?: string;
   category: string;
   latest_chapter?: string;
+  latest_chapter_updated_at?: string;
 }
 
 // API 回應的分頁格式

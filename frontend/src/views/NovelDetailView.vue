@@ -46,7 +46,7 @@
                   {{ novel.author.pen_name || novel.author.username }}
                 </router-link>
               </p>
-              <p class="text-base text-gray-500 mt-3">發布於 {{ new Date(novel.created_at).toLocaleDateString() }}</p>
+              <p class="text-base text-gray-500 mt-3">最後更新：{{ new Date(novel.latest_chapter_updated_at || novel.updated_at || novel.created_at).toLocaleDateString() }}</p>
             </div>
             <div class="mt-8 flex space-x-4 w-full">
               <button @click="startReading" class="btn-primary flex-1">{{ readingButtonText }}</button>
@@ -75,10 +75,10 @@
             <h3 class="text-xl font-semibold mb-4 border-b pb-2">未分卷章節</h3>
             <ul class="bg-white dark:bg-gray-800/50 rounded-lg shadow-sm overflow-hidden">
               <li v-for="chapter in novel.chapters_without_volume" :key="chapter.id" class="border-b border-gray-200 dark:border-gray-700 last:border-b-0">
-                <router-link :to="`/read/${novel.id}/${chapter.id}`" class="block px-6 py-4 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors duration-200">
+                <router-link :to="getChapterUrl(chapter.id)" class="block px-6 py-4 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors duration-200">
                   <div class="flex justify-start items-center flex-wrap gap-4">
                     <span class="text-gray-800 dark:text-gray-200 truncate">{{ chapter.title }}</span>
-                    <span class="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">{{ new Date(chapter.published_at).toLocaleDateString() }}</span>
+                    <span class="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">{{ new Date(chapter.updated_at || chapter.published_at).toLocaleDateString() }}</span>
                   </div>
                 </router-link>
               </li>
@@ -101,10 +101,10 @@
           <div class="max-h-[60vh] overflow-y-auto overflow-x-hidden">
             <ul v-if="selectedVolume && selectedVolume.chapters.length > 0" class="-mx-6 py-2 bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden">
               <li v-for="chapter in selectedVolume.chapters" :key="chapter.id" class="border-b border-gray-200 dark:border-gray-700 last:border-b-0">
-                <router-link :to="`/read/${novel.id}/${chapter.id}`" class="block px-6 py-4 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors duration-200" @click="selectedVolume = null">
+                <router-link :to="getChapterUrl(chapter.id)" class="block px-6 py-4 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors duration-200" @click="selectedVolume = null">
                   <div class="flex justify-start items-center flex-wrap gap-4">
                     <span class="text-gray-800 dark:text-gray-200 truncate">{{ chapter.title }}</span>
-                    <span class="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">{{ new Date(chapter.published_at).toLocaleDateString() }}</span>
+                    <span class="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">{{ new Date(chapter.updated_at || chapter.published_at).toLocaleDateString() }}</span>
                   </div>
                 </router-link>
               </li>
@@ -257,10 +257,28 @@ const startReading = async () => {
     }
   }
   if (targetChapterId) {
-    router.push({ name: 'Reading', params: { novelId: novel.value.id, chapterId: targetChapterId } });
+    // Check user's preferred reading mode
+    const preferredMode = localStorage.getItem('preferredReadingMode');
+    if (preferredMode === 'flip') {
+      // Navigate to flip reading mode
+      router.push(`/read/${novel.value.id}/${targetChapterId}/flip`);
+    } else {
+      // Default to normal reading mode
+      router.push({ name: 'Reading', params: { novelId: novel.value.id, chapterId: targetChapterId } });
+    }
   } else {
     eventBus.emit(EventType.ShowAlert, { type: 'info', title: '提示', message: '這本小說還沒有任何章節。' });
   }
+};
+
+// Helper function to generate chapter URL based on preferred reading mode
+const getChapterUrl = (chapterId: number | string) => {
+  if (!novel.value) return '';
+  const preferredMode = localStorage.getItem('preferredReadingMode');
+  if (preferredMode === 'flip') {
+    return `/read/${novel.value.id}/${chapterId}/flip`;
+  }
+  return `/read/${novel.value.id}/${chapterId}`;
 };
 </script>
 

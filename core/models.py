@@ -129,7 +129,9 @@ class Chapter(models.Model):
     title = models.CharField(max_length=255, verbose_name="章節標題")
     content = models.TextField(verbose_name="內容", default='')
     order = models.PositiveIntegerField(verbose_name="章節順序")
+    order = models.PositiveIntegerField(verbose_name="章節順序")
     published_at = models.DateTimeField(auto_now_add=True, verbose_name="發布時間")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="最後更新時間")
     views = models.PositiveIntegerField(default=0, verbose_name="觀看次數")
     status = models.CharField(
         max_length=10, 

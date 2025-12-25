@@ -123,3 +123,59 @@ header {
   transition: transform 0.3s ease-in-out; 
   /* Removed background-color and color transition to avoid theme switch lag */
 }
+
+/* Flip reading mode - completely hide the app header/navbar and footer */
+body.flip-reading-mode header,
+body.flip-reading-mode footer {
+  display: none !important;
+}
+
+body.flip-reading-mode {
+  overflow: hidden !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* Ensure html and body have no margin/padding in flip mode */
+html:has(body.flip-reading-mode) {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+body.flip-reading-mode #app {
+  padding-top: 0 !important;
+  margin-top: 0 !important;
+}
+
+/* Critical: Override the main container's padding in flip reading mode */
+/* The main element in AppLayout has py-8 (padding-top/bottom: 32px) which causes the gap */
+body.flip-reading-mode main {
+  padding: 0 !important;
+  margin: 0 !important;
+  max-width: none !important;
+}
+
+/* Ensure the flip reading view fills the entire viewport */
+body.flip-reading-mode .flip-reading-view {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  z-index: 100;
+}
+
+/* AMOLED pure black mode - ensure the entire page is pure black */
+/* This is applied when the user selects the AMOLED theme in reading settings */
+.reading-amoled,
+.reading-amoled body,
+.reading-amoled #app {
+  background-color: #000000 !important;
+}
+
+html.reading-amoled {
+  background-color: #000000 !important;
+}

@@ -40,6 +40,9 @@
         <p class="text-xs text-gray-500 dark:text-gray-400 mt-3 text-right">
           最後更新：{{ formattedDate }}
         </p>
+        <p v-if="novel.latest_chapter" class="text-xs text-blue-600 dark:text-blue-400 mt-1 text-right truncate">
+          最新章節：{{ novel.latest_chapter }}
+        </p>
       </div>
     </router-link>
   </div>

@@ -1,0 +1,15 @@
+
+module my-gunicorn 1.0;
+
+require {
+	type init_t;
+	type httpd_sys_rw_content_t;
+	type httpd_sys_script_exec_t;
+	class file { create ioctl lock open setattr write };
+	class dir add_name;
+}
+
+#============= init_t ==============
+allow init_t httpd_sys_rw_content_t:dir add_name;
+allow init_t httpd_sys_rw_content_t:file { create ioctl lock open setattr write };
+allow init_t httpd_sys_script_exec_t:file lock;

@@ -1,7 +1,7 @@
 <template>
   <div 
     class="min-h-screen"
-    :style="{ backgroundColor: settings.bgColor, color: settings.fontColor }"
+    :style="{ backgroundColor: effectivePageBg, color: effectiveTextColor }"
   >
       <div :class="[containerWidthClass, 'mx-auto']">
       <div v-if="isLoading" class="text-center py-20">載入中...</div>
@@ -32,7 +32,7 @@
                 leave-from-class="opacity-100 scale-100"
                 leave-to-class="opacity-0 scale-95"
               >
-                <div v-if="showSettingsPanel" class="absolute right-0 top-full mt-2 w-80 bg-white dark:bg-gray-800 p-6 shadow-xl border border-gray-100 dark:border-gray-700 rounded-xl z-40">
+                <div v-if="showSettingsPanel" class="absolute right-0 top-full mt-2 w-80 bg-white dark:bg-gray-800 p-6 shadow-xl border border-gray-100 dark:border-gray-700 rounded-xl z-40 max-h-[80vh] overflow-y-auto">
                   <h3 class="text-lg font-bold mb-4 text-left text-gray-800 dark:text-white">閱讀設定</h3>
                   
                   <!-- 字體大小 -->
@@ -45,21 +45,81 @@
                     </div>
                   </div>
 
-                  <!-- 背景顏色 -->
+                  <!-- 自定義顏色開關 -->
                   <div class="setting-item">
-                    <label class="label">閱讀背景</label>
+                    <label class="label">自定義配色</label>
                     <div class="control">
+                      <button 
+                        @click="settings.customColorEnabled = !settings.customColorEnabled; saveSettings()"
+                        class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors"
+                        :class="settings.customColorEnabled ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'"
+                      >
+                        <span 
+                          class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform"
+                          :class="settings.customColorEnabled ? 'translate-x-6' : 'translate-x-1'"
+                        />
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- 預設背景顏色 (非自定義模式) -->
+                  <div v-if="!settings.customColorEnabled" class="setting-item">
+                    <label class="label">顏色</label>
+                    <div class="control gap-1">
                       <button v-for="(color, name) in colorThemes" :key="name" 
                         @click="changeBgColor(name as string)"
-                        class="w-8 h-8 rounded-full border-2 transition-transform transform hover:scale-110"
+                        class="w-7 h-7 rounded-full border-2 transition-transform transform hover:scale-110 flex-shrink-0"
                         :class="settings.themeName === name ? 'border-blue-500' : 'border-gray-300 dark:border-gray-600'"
                         :style="{ backgroundColor: color.bg }"
+                        :title="getThemeName(name as string)"
                       ></button>
                     </div>
                   </div>
 
+                  <!-- 自定義顏色選擇器 -->
+                  <div v-if="settings.customColorEnabled" class="mt-4 space-y-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                    <div class="flex items-center justify-between">
+                      <span class="text-sm text-gray-600 dark:text-gray-300">閱讀底色</span>
+                      <div class="flex items-center gap-2">
+                        <span class="text-xs font-mono text-gray-500">{{ settings.customContentBg }}</span>
+                        <input type="color" v-model="settings.customContentBg" @change="saveSettings()" class="w-8 h-8 rounded cursor-pointer border-0" />
+                      </div>
+                    </div>
+                    <div class="flex items-center justify-between">
+                      <span class="text-sm text-gray-600 dark:text-gray-300">文字顏色</span>
+                      <div class="flex items-center gap-2">
+                        <span class="text-xs font-mono text-gray-500">{{ settings.customTextColor }}</span>
+                        <input type="color" v-model="settings.customTextColor" @change="saveSettings()" class="w-8 h-8 rounded cursor-pointer border-0" />
+                      </div>
+                    </div>
+                    <!-- 文字外框選項 -->
+                    <div class="flex items-center justify-between pt-2 border-t border-gray-200 dark:border-gray-600">
+                      <span class="text-sm text-gray-600 dark:text-gray-300">文字外框</span>
+                      <div class="flex items-center gap-2">
+                        <button 
+                          @click="settings.textOutlineEnabled = !settings.textOutlineEnabled; saveSettings()"
+                          class="relative inline-flex h-5 w-9 items-center rounded-full transition-colors"
+                          :class="settings.textOutlineEnabled ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-500'"
+                        >
+                          <span 
+                            class="inline-block h-3 w-3 transform rounded-full bg-white transition-transform"
+                            :class="settings.textOutlineEnabled ? 'translate-x-5' : 'translate-x-1'"
+                          />
+                        </button>
+                        <input v-if="settings.textOutlineEnabled" type="color" v-model="settings.textOutlineColor" @change="saveSettings()" class="w-6 h-6 rounded cursor-pointer border-0" />
+                      </div>
+                    </div>
+                    <!-- 重置配色按鈕 -->
+                    <button 
+                      @click="resetCustomColors()"
+                      class="w-full mt-2 px-3 py-1.5 text-sm text-gray-600 dark:text-gray-300 bg-gray-200 dark:bg-gray-600 rounded hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors"
+                    >
+                      重置為預設配色
+                    </button>
+                  </div>
+
                   <!-- 版面寬度 (電腦版) -->
-                  <div class="setting-item hidden sm:flex">
+                  <div class="setting-item hidden sm:flex mt-4">
                      <label class="label">版面寬度</label>
                      <div class="control text-sm">
                         <button @click="settings.widthMode = 'small'; saveSettings()" :class="{'bg-blue-500 text-white': settings.widthMode === 'small'}" class="px-2 py-1 rounded border border-gray-300 dark:border-gray-600 transition-colors">標準</button>
@@ -68,7 +128,17 @@
                      </div>
                   </div>
 
-                  <div class="mt-6 flex justify-end">
+                  <!-- 切換到翻頁模式 -->
+                  <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                    <router-link 
+                      :to="`/read/${novelId}/${chapterId}/flip`"
+                      class="block w-full text-center px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg hover:from-blue-600 hover:to-indigo-600 transition-colors text-sm font-medium"
+                    >
+                      📖 開啟翻頁閱讀模式
+                    </router-link>
+                  </div>
+
+                  <div class="mt-4 flex justify-end">
                       <button @click="showSettingsPanel = false" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm">關閉</button>
                   </div>
                 </div>
@@ -81,17 +151,32 @@
         </div>
 
         <!-- 小說內容 -->
-        <div class="p-6 sm:p-8 lg:p-10">
-          <div 
-            class="prose max-w-none whitespace-pre-wrap"
-            :style="{ fontSize: `${settings.fontSize}px` }"
-            v-html="displayedContent"
-          >
+        <div 
+          class="relative" 
+          :class="settings.flipMode ? 'flip-mode-container' : ''" 
+          :style="flipContainerStyle"
+          ref="contentContainer"
+        >
+          <!-- Flip mode tap zones - lower z-index, hidden when settings panel open -->
+          <div v-if="settings.flipMode && !showSettingsPanel" class="absolute inset-0 z-[5] flex pointer-events-auto">
+            <div class="w-[30%] h-full cursor-pointer hover:bg-black/5 transition-colors" @click="goBackward"></div>
+            <div class="w-[40%] h-full pointer-events-none"></div>
+            <div class="w-[30%] h-full cursor-pointer hover:bg-black/5 transition-colors" @click="goForward"></div>
+          </div>
+          
+          <div class="p-6 sm:p-8 lg:p-10" :style="contentAreaStyle">
+            <div 
+              class="prose max-w-none whitespace-pre-wrap"
+              :class="settings.flipMode ? 'flip-mode-content' : ''"
+              :style="proseStyle"
+              v-html="displayedContent"
+            >
+            </div>
           </div>
         </div>
 
-        <!-- 底部翻頁 -->
-        <div class="p-4 flex justify-between items-center gap-2">
+        <!-- 底部翻頁 - 翻頁模式下只顯示頁數 -->
+        <div v-if="!settings.flipMode" class="p-4 flex justify-between items-center gap-2">
           <button @click="goBackward" :disabled="isFirstPage && !chapter.previous_chapter_id" class="btn-nav-lg flex-1">
             {{ isFirstPage ? '上一章' : '上一頁' }}
           </button>
@@ -102,6 +187,17 @@
 
           <button @click="goForward" :disabled="isLastPage && !chapter.next_chapter_id" class="btn-nav-lg flex-1">
             {{ isLastPage ? '下一章' : '下一頁' }}
+          </button>
+        </div>
+        
+        <!-- 翻頁模式 - 簡潔頁數顯示 -->
+        <div v-else class="p-2 text-center">
+          <button 
+            @click="openPageSelector" 
+            class="text-sm px-4 py-1 rounded-full transition-colors"
+            :style="{ color: effectiveTextColor, opacity: 0.7 }"
+          >
+            第 {{ currentPage }} / {{ totalPages }} 頁
           </button>
         </div>
       </div>
@@ -177,10 +273,21 @@ const currentPage = ref(1);
 const paragraphsPerPage = 30;
 const isManualPagination = ref(false); // Flag for manual page breaks
 
+// Helper to check if a paragraph is empty (section break)
+const isEmptyParagraph = (html: string): boolean => {
+  // Match <p></p>, <p><br></p>, <p><br/></p>, or <p> </p> (whitespace only)
+  return /^<p>\s*(<br\s*\/?>)?\s*<\/p>$/i.test(html.trim());
+};
+
+// Count only non-empty paragraphs for pagination
+const contentParagraphCount = computed(() => {
+  return paragraphs.value.filter(p => !isEmptyParagraph(p)).length;
+});
+
 const totalPages = computed(() => {
   if (paragraphs.value.length === 0) return 1;
   if (isManualPagination.value) return paragraphs.value.length;
-  return Math.ceil(paragraphs.value.length / paragraphsPerPage);
+  return Math.ceil(contentParagraphCount.value / paragraphsPerPage);
 });
 
 const displayedContent = computed(() => {
@@ -188,9 +295,34 @@ const displayedContent = computed(() => {
       // In manual mode, paragraphs array ARE the pages
       return paragraphs.value[currentPage.value - 1] || '';
   }
-  const start = (currentPage.value - 1) * paragraphsPerPage;
-  const end = start + paragraphsPerPage;
-  return paragraphs.value.slice(start, end).join('');
+  
+  // For auto pagination: count non-empty paragraphs to find page boundaries
+  const targetStart = (currentPage.value - 1) * paragraphsPerPage;
+  const targetEnd = targetStart + paragraphsPerPage;
+  
+  let contentCount = 0;
+  let startIndex = -1;
+  let endIndex = paragraphs.value.length;
+  
+  for (let i = 0; i < paragraphs.value.length; i++) {
+    const isEmpty = isEmptyParagraph(paragraphs.value[i]);
+    
+    if (startIndex === -1 && contentCount >= targetStart) {
+      startIndex = i;
+    }
+    
+    if (!isEmpty) {
+      contentCount++;
+    }
+    
+    if (contentCount > targetEnd) {
+      endIndex = i;
+      break;
+    }
+  }
+  
+  if (startIndex === -1) startIndex = 0;
+  return paragraphs.value.slice(startIndex, endIndex).join('');
 });
 
 // --- Reading Progress (Combined Page and Scroll) ---
@@ -326,6 +458,63 @@ const settings = reactive({
   bgColor: colorThemes.light.bg,
   fontColor: colorThemes.light.font,
   widthMode: 'small' as 'small' | 'large' | 'full',
+  // Flip mode
+  flipMode: false,
+  // Custom colors
+  customColorEnabled: false,
+  customContentBg: '#FFFFFF',
+  customTextColor: '#111827',
+  // Text outline
+  textOutlineEnabled: false,
+  textOutlineColor: '#000000',
+});
+
+// Computed: effective colors (respect custom colors if enabled)
+const effectivePageBg = computed(() => {
+  return settings.customColorEnabled ? settings.customContentBg : settings.bgColor;
+});
+
+const effectiveContentBg = computed(() => {
+  return settings.customColorEnabled ? settings.customContentBg : settings.bgColor;
+});
+
+const effectiveTextColor = computed(() => {
+  return settings.customColorEnabled ? settings.customTextColor : settings.fontColor;
+});
+
+// Style for content area
+const contentAreaStyle = computed(() => ({
+  backgroundColor: effectiveContentBg.value,
+}));
+
+// Style for prose text content
+const proseStyle = computed(() => {
+  const style: Record<string, string> = {
+    fontSize: `${settings.fontSize}px`,
+    color: effectiveTextColor.value,
+  };
+  
+  // Add text outline if enabled
+  if (settings.textOutlineEnabled && settings.customColorEnabled) {
+    const outlineColor = settings.textOutlineColor;
+    style.textShadow = `
+      -1px -1px 0 ${outlineColor},
+      1px -1px 0 ${outlineColor},
+      -1px 1px 0 ${outlineColor},
+      1px 1px 0 ${outlineColor}
+    `;
+  }
+  
+  return style;
+});
+
+// Style for flip container (viewport height minus header/footer)
+const flipContainerStyle = computed(() => {
+  if (!settings.flipMode) return {};
+  return {
+    minHeight: 'calc(100vh - 200px)',
+    overflow: 'hidden',
+  };
 });
 
 const containerWidthClass = computed(() => {
@@ -342,19 +531,69 @@ const loadSettings = () => {
     const parsed = JSON.parse(savedSettings);
     settings.fontSize = parsed.fontSize || 18;
     settings.widthMode = parsed.widthMode || 'small';
+    settings.flipMode = parsed.flipMode || false;
+    settings.customColorEnabled = parsed.customColorEnabled || false;
+    settings.customContentBg = parsed.customContentBg || '#FFFFFF';
+    settings.customTextColor = parsed.customTextColor || '#111827';
+    settings.textOutlineEnabled = parsed.textOutlineEnabled || false;
+    settings.textOutlineColor = parsed.textOutlineColor || '#000000';
     changeBgColor(parsed.themeName || 'light', false);
   } else {
     const isGlobalDark = document.documentElement.classList.contains('dark');
     changeBgColor(isGlobalDark ? 'dark' : 'light', false);
+    // Initialize custom colors from current theme
+    initializeCustomColorsFromTheme();
   }
+  
+  // Save reading mode preference
+  localStorage.setItem('preferredReadingMode', 'normal');
 };
 
 const saveSettings = () => {
   localStorage.setItem('readingSettings', JSON.stringify({ 
     fontSize: settings.fontSize, 
     themeName: settings.themeName,
-    widthMode: settings.widthMode
+    widthMode: settings.widthMode,
+    flipMode: settings.flipMode,
+    customColorEnabled: settings.customColorEnabled,
+    customContentBg: settings.customContentBg,
+    customTextColor: settings.customTextColor,
+    textOutlineEnabled: settings.textOutlineEnabled,
+    textOutlineColor: settings.textOutlineColor,
   }));
+};
+
+// Initialize custom colors from current theme
+const initializeCustomColorsFromTheme = () => {
+  const isDark = settings.themeName === 'dark' || settings.themeName === 'gray' || settings.themeName === 'amoled';
+  if (isDark) {
+    settings.customContentBg = settings.themeName === 'amoled' ? '#000000' : '#1F2937';
+    settings.customTextColor = '#F3F4F6';
+    settings.textOutlineColor = '#FFFFFF';
+  } else {
+    settings.customContentBg = '#FFFFFF';
+    settings.customTextColor = '#111827';
+    settings.textOutlineColor = '#000000';
+  }
+};
+
+// Reset custom colors to theme defaults
+const resetCustomColors = () => {
+  initializeCustomColorsFromTheme();
+  settings.textOutlineEnabled = false;
+  saveSettings();
+};
+
+// Helper function for theme names
+const getThemeName = (name: string): string => {
+  const names: Record<string, string> = {
+    light: '白色',
+    sepia: '泛黃',
+    gray: '灰色',
+    dark: '深黑',
+    amoled: 'AMOLED 純黑',
+  };
+  return names[name] || name;
 };
 
 const changeFontSize = (delta: number) => {
@@ -375,7 +614,8 @@ const changeBgColor = (themeName: string, emitEvent = true) => {
         settings.fontColor = theme.font;
         saveSettings();
 
-        const isDark = themeName === 'dark' || themeName === 'gray';
+        // AMOLED is also a dark theme
+        const isDark = themeName === 'dark' || themeName === 'gray' || themeName === 'amoled';
         
         document.documentElement.classList.add('no-transition');
 
@@ -487,18 +727,51 @@ const selectPage = (page: number) => {
 // --- Auto-Hide Navbar Logic ---
 useAutoHideNavbar();
 
+// --- Body background and flip mode management ---
+const updateBodyStyles = () => {
+  document.body.style.backgroundColor = effectivePageBg.value;
+  if (settings.flipMode) {
+    document.body.classList.add('reading-flip-mode');
+  } else {
+    document.body.classList.remove('reading-flip-mode');
+  }
+  
+  // Apply AMOLED mode class if selected
+  if (settings.themeName === 'amoled') {
+    document.documentElement.classList.add('reading-amoled');
+  } else {
+    document.documentElement.classList.remove('reading-amoled');
+  }
+};
+
+const restoreBodyStyles = () => {
+  document.body.style.backgroundColor = '';
+  document.body.classList.remove('reading-flip-mode');
+  document.documentElement.classList.remove('reading-amoled');
+};
+
+// Watch for color and flip mode changes
+watch([effectivePageBg, () => settings.flipMode], () => {
+  updateBodyStyles();
+}, { immediate: false });
+
 // --- 生命週期鉤子 ---
 onMounted(() => {
   loadSettings();
   fetchChapter(props.novelId, props.chapterId);
   window.addEventListener('scroll', handleScroll);
   window.addEventListener('beforeunload', saveProgress);
+  // Apply body styles after settings loaded
+  nextTick(() => {
+    updateBodyStyles();
+  });
 });
 
 onUnmounted(() => {
   saveProgress();
   window.removeEventListener('scroll', handleScroll);
   window.removeEventListener('beforeunload', saveProgress);
+  restoreBodyStyles();
 });
 
 watch(
@@ -525,6 +798,12 @@ watch(currentPage, (newPage, oldPage) => {
 .prose {
   line-height: 1.8;
   color: v-bind('settings.fontColor');
+}
+
+/* Ensure empty paragraphs (section breaks) are visible */
+.prose :deep(p:empty),
+.prose :deep(p:has(br:only-child)) {
+  min-height: 1em;
 }
 
 .btn-nav {
@@ -561,5 +840,37 @@ watch(currentPage, (newPage, oldPage) => {
 .slide-up-leave-to {
   transform: translateY(100%);
   opacity: 0;
+}
+
+/* Flip mode styles */
+.flip-mode-container {
+  height: calc(100vh - 100px); /* Viewport minus header and minimal footer */
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (max-width: 640px) {
+  .flip-mode-container {
+    height: calc(100vh - 90px); /* Smaller on mobile */
+  }
+}
+
+.flip-mode-content {
+  overflow: hidden;
+  max-height: 100%;
+}
+</style>
+
+<!-- Global styles for body when in flip mode -->
+<style>
+/* Applied to body via JavaScript when in flip reading mode */
+body.reading-flip-mode {
+  overflow: hidden !important;
+}
+
+/* Hide main app navbar when in flip mode */
+body.reading-flip-mode .app-navbar {
+  display: none !important;
 }
 </style>

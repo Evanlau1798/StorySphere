@@ -14,6 +14,7 @@ const NovelDetailView = () => import('@/views/NovelDetailView.vue');
 const AuthorView = () => import('@/views/AuthorView.vue');
 const ProfileSettingsView = () => import('@/views/ProfileSettingsView.vue');
 const ReadingView = () => import('@/views/ReadingView.vue');
+const FlipReadingView = () => import('@/views/FlipReadingView.vue');
 const AuthorDashboardLayout = () => import('@/views/author/AuthorDashboardLayout.vue');
 const AuthorNovelList = () => import('@/views/author/AuthorNovelList.vue');
 const AuthorNovelEdit = () => import('@/views/author/AuthorNovelEdit.vue');
@@ -82,6 +83,12 @@ const routes: Array<RouteRecordRaw> = [
     path: '/read/:novelId/:chapterId',
     name: 'Reading',
     component: ReadingView,
+    props: true
+  },
+  {
+    path: '/read/:novelId/:chapterId/flip',
+    name: 'FlipReading',
+    component: FlipReadingView,
     props: true
   },
   {

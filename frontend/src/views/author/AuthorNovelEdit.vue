@@ -73,49 +73,87 @@
           <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg">
             <h2 class="text-2xl font-bold text-gray-800 dark:text-white mb-4">分卷與章節管理</h2>
 
-            <!-- Add New Volume -->
-            <div class="mb-6 p-4 border rounded-lg bg-gray-50 dark:bg-gray-700">
-              <h3 class="text-xl font-semibold mb-3 text-gray-800 dark:text-white">新增分卷</h3>
-              <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
-                <input 
-                  type="text" 
-                  v-model="newVolumeTitle" 
-                  placeholder="輸入分卷標題" 
-                  class="flex-grow p-2 border rounded bg-gray-50 dark:bg-gray-800 dark:border-gray-600 text-gray-800 dark:text-gray-200"
-                />
-                <button @click="addVolume" class="btn-icon-label bg-blue-500 text-white" :disabled="!newVolumeTitle.trim() || isSaving">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clip-rule="evenodd" /></svg>
-                  <span class="hidden sm:inline">新增分卷</span>
-                </button>
+            <!-- Show message when creating new novel -->
+            <div v-if="!isEditing" class="text-center py-8">
+              <div class="mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mx-auto text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                </svg>
               </div>
+              <p class="text-gray-500 dark:text-gray-400 mb-2">請先儲存小說資訊</p>
+              <p class="text-sm text-gray-400 dark:text-gray-500">儲存後即可管理分卷與章節</p>
             </div>
 
-            <!-- Volumes List -->
-            <div v-if="volumesLoading" class="text-center">載入分卷中...</div>
-            <div v-else-if="volumes.length === 0" class="text-center text-gray-500 dark:text-gray-400 py-4">
-              <p>尚未新增任何分卷。</p>
-            </div>
-            <div v-else class="space-y-4">
-              <div v-for="volume in volumes" :key="volume.id" class="border rounded-lg overflow-hidden shadow-sm bg-gray-50 dark:bg-gray-700">
-                <div class="flex justify-between items-center p-3 sm:p-4 bg-gray-100 dark:bg-gray-800">
-                  <h3 class="text-base sm:text-lg font-semibold text-gray-800 dark:text-white truncate pr-2">{{ volume.title }} ({{ volume.chapters.length }} 章)</h3>
-                  <div class="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
-                    <router-link :to="`/dashboard/novels/${novelId}/chapters/new?volumeId=${volume.id}`" class="btn-icon-label bg-green-500 text-white">
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clip-rule="evenodd" /></svg>
-                      <span class="hidden sm:inline">新增</span>
-                    </router-link>
-                    <button @click="openEditVolumeModal(volume)" class="btn-icon-label bg-yellow-500 text-white">
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" /><path fill-rule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clip-rule="evenodd" /></svg>
-                      <span class="hidden sm:inline">編輯</span>
-                    </button>
-                    <button @click="deleteVolume(volume.id)" class="btn-icon-label bg-red-500 text-white">
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clip-rule="evenodd" /></svg>
-                      <span class="hidden sm:inline">刪除</span>
-                    </button>
-                  </div>
+            <!-- Existing volume/chapter management (only show when editing) -->
+            <template v-else>
+              <!-- Add New Volume -->
+              <div class="mb-6 p-4 border rounded-lg bg-gray-50 dark:bg-gray-700">
+                <h3 class="text-xl font-semibold mb-3 text-gray-800 dark:text-white">新增分卷</h3>
+                <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
+                  <input 
+                    type="text" 
+                    v-model="newVolumeTitle" 
+                    placeholder="輸入分卷標題" 
+                    class="flex-grow p-2 border rounded bg-gray-50 dark:bg-gray-800 dark:border-gray-600 text-gray-800 dark:text-gray-200"
+                  />
+                  <button @click="addVolume" class="btn-icon-label bg-blue-500 text-white" :disabled="!newVolumeTitle.trim() || isSaving">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clip-rule="evenodd" /></svg>
+                    <span class="hidden sm:inline">新增分卷</span>
+                  </button>
                 </div>
+              </div>
+
+              <!-- Volumes List -->
+              <div v-if="volumesLoading" class="text-center">載入分卷中...</div>
+              <div v-else-if="volumes.length === 0" class="text-center text-gray-500 dark:text-gray-400 py-4">
+                <p>尚未新增任何分卷。</p>
+              </div>
+              <div v-else class="space-y-4">
+                <div v-for="volume in volumes" :key="volume.id" class="border rounded-lg overflow-hidden shadow-sm bg-gray-50 dark:bg-gray-700">
+                  <div class="flex justify-between items-center p-3 sm:p-4 bg-gray-100 dark:bg-gray-800">
+                    <h3 class="text-base sm:text-lg font-semibold text-gray-800 dark:text-white truncate pr-2">{{ volume.title }} ({{ volume.chapters.length }} 章)</h3>
+                    <div class="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
+                      <router-link :to="`/dashboard/novels/${novelId}/chapters/new?volumeId=${volume.id}`" class="btn-icon-label bg-green-500 text-white">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clip-rule="evenodd" /></svg>
+                        <span class="hidden sm:inline">新增</span>
+                      </router-link>
+                      <button @click="openEditVolumeModal(volume)" class="btn-icon-label bg-yellow-500 text-white">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" /><path fill-rule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clip-rule="evenodd" /></svg>
+                        <span class="hidden sm:inline">編輯</span>
+                      </button>
+                      <button @click="deleteVolume(volume.id)" class="btn-icon-label bg-red-500 text-white">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clip-rule="evenodd" /></svg>
+                        <span class="hidden sm:inline">刪除</span>
+                      </button>
+                    </div>
+                  </div>
+                  <ul class="divide-y divide-gray-200 dark:divide-gray-600">
+                    <li v-for="chapter in volume.chapters" :key="chapter.id" class="flex justify-between items-center p-3 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
+                      <span class="text-gray-800 dark:text-gray-200 truncate pr-2">
+                        {{ chapter.title }}
+                        <span v-if="chapter.status === 'DRAFT'" class="text-xs text-yellow-500 ml-2"> (草稿)</span>
+                      </span>
+                      <div class="flex items-center space-x-2">
+                        <router-link :to="`/dashboard/novels/${novelId}/chapters/${chapter.id}/edit`" class="btn-icon text-blue-500" title="編輯">
+                          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" /><path fill-rule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clip-rule="evenodd" /></svg>
+                        </router-link>
+                        <button @click="deleteChapter(chapter.id)" class="btn-icon text-red-500" title="刪除">
+                          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clip-rule="evenodd" /></svg>
+                        </button>
+                      </div>
+                    </li>
+                    <li v-if="volume.chapters.length === 0" class="text-center text-gray-500 dark:text-gray-400 py-3">
+                      此分卷下沒有章節。
+                    </li>
+                  </ul>
+                </div>
+              </div>
+
+              <!-- Chapters without Volume -->
+              <div v-if="chaptersWithoutVolume.length > 0" class="mt-8 p-4 border rounded-lg bg-gray-50 dark:bg-gray-700">
+                <h3 class="text-xl font-semibold mb-3 text-gray-800 dark:text-white">未分卷章節</h3>
                 <ul class="divide-y divide-gray-200 dark:divide-gray-600">
-                  <li v-for="chapter in volume.chapters" :key="chapter.id" class="flex justify-between items-center p-3 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
+                  <li v-for="chapter in chaptersWithoutVolume" :key="chapter.id" class="flex justify-between items-center p-3 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
                     <span class="text-gray-800 dark:text-gray-200 truncate pr-2">
                       {{ chapter.title }}
                       <span v-if="chapter.status === 'DRAFT'" class="text-xs text-yellow-500 ml-2"> (草稿)</span>
@@ -129,40 +167,16 @@
                       </button>
                     </div>
                   </li>
-                  <li v-if="volume.chapters.length === 0" class="text-center text-gray-500 dark:text-gray-400 py-3">
-                    此分卷下沒有章節。
-                  </li>
                 </ul>
               </div>
-            </div>
 
-            <!-- Chapters without Volume -->
-            <div v-if="chaptersWithoutVolume.length > 0" class="mt-8 p-4 border rounded-lg bg-gray-50 dark:bg-gray-700">
-              <h3 class="text-xl font-semibold mb-3 text-gray-800 dark:text-white">未分卷章節</h3>
-              <ul class="divide-y divide-gray-200 dark:divide-gray-600">
-                <li v-for="chapter in chaptersWithoutVolume" :key="chapter.id" class="flex justify-between items-center p-3 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">
-                  <span class="text-gray-800 dark:text-gray-200 truncate pr-2">
-                    {{ chapter.title }}
-                    <span v-if="chapter.status === 'DRAFT'" class="text-xs text-yellow-500 ml-2"> (草稿)</span>
-                  </span>
-                  <div class="flex items-center space-x-2">
-                    <router-link :to="`/dashboard/novels/${novelId}/chapters/${chapter.id}/edit`" class="btn-icon text-blue-500" title="編輯">
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" /><path fill-rule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clip-rule="evenodd" /></svg>
-                    </router-link>
-                    <button @click="deleteChapter(chapter.id)" class="btn-icon text-red-500" title="刪除">
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clip-rule="evenodd" /></svg>
-                    </button>
-                  </div>
-                </li>
-              </ul>
-            </div>
-
-            <div v-if="!volumesLoading && volumes.length === 0 && chaptersWithoutVolume.length === 0" class="text-center text-gray-500 dark:text-gray-400 py-4">
-              <p>這本小說還沒有任何章節或分卷。</p>
-              <router-link :to="`/dashboard/novels/${novelId}/chapters/new`" class="mt-4 inline-block bg-blue-500 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-600 transition-colors">
-                新增第一章
-              </router-link>
-            </div>
+              <div v-if="!volumesLoading && volumes.length === 0 && chaptersWithoutVolume.length === 0" class="text-center text-gray-500 dark:text-gray-400 py-4">
+                <p>這本小說還沒有任何章節或分卷。</p>
+                <router-link :to="`/dashboard/novels/${novelId}/chapters/new`" class="mt-4 inline-block bg-blue-500 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-600 transition-colors">
+                  新增第一章
+                </router-link>
+              </div>
+            </template>
           </div>
         </div>
       </div>
