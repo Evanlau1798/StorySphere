@@ -43,7 +43,7 @@ apiClient.interceptors.response.use(
         const authStore = useAuthStore();
 
         // Only handle 401 errors, and ensure it's not a retry or a refresh token request itself
-        if (error.response.status === 401 && !originalRequest._retry) {
+        if (error.response && error.response.status === 401 && !originalRequest._retry) {
             
             if (isRefreshing) {
                 // If a refresh is already in progress, queue the original request

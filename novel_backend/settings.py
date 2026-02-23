@@ -200,9 +200,31 @@ SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60), # Access Token 有效期 60 分鐘
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),    # Refresh Token 有效期 7 天
     "ROTATE_REFRESH_TOKENS": True,                  # 每次刷新都會產生新的 Refresh Token
+    "BLACKLIST_AFTER_ROTATION": True,               # 舊的 Refresh Token 在輪換後加入黑名單
     "USER_ID_FIELD": "id",
     "USER_ID_CLAIM": "user_id",
 }
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+# --- Security Hardening ---
+# Prevent browsers from MIME-sniffing the content type
+SECURE_CONTENT_TYPE_NOSNIFF = True
+# Enable XSS filter in older browsers
+SECURE_BROWSER_XSS_FILTER = True
+# Prevent the site from being framed (clickjacking protection)
+X_FRAME_OPTIONS = 'DENY'
+
+# Production-only settings (enabled when DEBUG=False)
+if not DEBUG:
+    # Force HTTPS
+    SECURE_SSL_REDIRECT = True
+    # Mark session cookie as Secure (HTTPS only)
+    SESSION_COOKIE_SECURE = True
+    # Mark CSRF cookie as Secure (HTTPS only)
+    CSRF_COOKIE_SECURE = True
+    # Enable HSTS (start with a short max-age, increase after verification)
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True

@@ -41,17 +41,21 @@ logger = logging.getLogger(__name__)
 def log_frontend_error(request):
     try:
         error_data = request.data
-        message = error_data.get('message', 'No message provided')
-        stack = error_data.get('stack', 'No stack trace provided')
-        
+        message = str(error_data.get('message', 'No message provided'))[:1000]
+        stack = str(error_data.get('stack', 'No stack trace provided'))[:2000]
+
+        # Sanitize: strip control characters that could be used for log injection
+        message = message.replace('\r', '').replace('\x00', '')
+        stack = stack.replace('\r', '').replace('\x00', '')
+
         # 使用 logger.error 來觸發 Discord 通知
         logger.error(f"Frontend Error: {message}\nStack Trace:\n{stack}")
-        
+
         return JsonResponse({'status': 'ok'}, status=200)
     except Exception as e:
         # 如果日誌端點本身出錯，記錄到伺服器日誌
-        logger.error(f"Error in log_frontend_error endpoint: {e}")
-        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+        logger.error(f"Error in log_frontend_error endpoint: {type(e).__name__}")
+        return JsonResponse({'status': 'error'}, status=500)
 
 
 class MyTokenObtainPairView(OriginalTokenObtainPairView):
@@ -62,13 +66,31 @@ class ImageView(generics.CreateAPIView):
     serializer_class = ImageUploadSerializer
     permission_classes = [IsAuthenticated]
 
+    MAX_IMAGE_SIZE = 5 * 1024 * 1024  # 5MB
+
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         image = serializer.validated_data['image']
-        # You might want to create a more sophisticated path, 
-        # e.g., based on user or date
-        path = f'chapter_images/{image.name}'
+
+        # Enforce file size limit
+        if image.size > self.MAX_IMAGE_SIZE:
+            return Response(
+                {'error': '圖片大小不能超過 5MB。'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Sanitize filename: use only the file extension, generate a safe name
+        import uuid
+        ext = os.path.splitext(image.name)[1].lower()
+        allowed_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.webp'}
+        if ext not in allowed_extensions:
+            return Response(
+                {'error': '不支援的圖片格式。僅支援 JPG, PNG, GIF, WebP。'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        safe_name = f'{uuid.uuid4().hex}{ext}'
+        path = f'chapter_images/{safe_name}'
         saved_path = default_storage.save(path, image)
         url = default_storage.url(saved_path)
         return Response({'url': url}, status=status.HTTP_201_CREATED)
@@ -155,6 +177,9 @@ class VolumeViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         novel = Novel.objects.get(pk=self.kwargs['novel_pk'])
+        # Verify the current user is the author of this novel
+        if not hasattr(self.request.user, 'author_profile') or novel.author != self.request.user.author_profile:
+            raise serializers.ValidationError("您沒有權限為此小說新增分卷。")
         # 自動計算 order
         last_volume = Volume.objects.filter(novel=novel).order_by('-order').first()
         next_order = (last_volume.order + 1) if last_volume else 1
@@ -363,12 +388,15 @@ class ChapterViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         novel = Novel.objects.get(pk=self.kwargs['novel_pk'])
+        # Verify the current user is the author of this novel
+        if not hasattr(self.request.user, 'author_profile') or novel.author != self.request.user.author_profile:
+            raise serializers.ValidationError("您沒有權限為此小說新增章節。")
 
         # 為了確保 'order' 在整本小說中是唯一的，我們總是基於小說本身來計算下一個 order
         last_chapter = Chapter.objects.filter(novel=novel).order_by('-order').first()
-        
+
         next_order = (last_chapter.order + 1) if last_chapter else 1
-        
+
         # 序列化器會自動處理 'volume' (如果有的話)
         serializer.save(novel=novel, order=next_order)
 
@@ -447,7 +475,7 @@ class AdminViewSet(viewsets.ViewSet):
         import os
         try:
             load_avg = os.getloadavg() # returns (1, 5, 15) min load
-        except:
+        except OSError:
             load_avg = (0, 0, 0)
             
         return Response({
