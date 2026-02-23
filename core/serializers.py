@@ -4,6 +4,7 @@ from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 import bleach
+from bleach.css_sanitizer import CSSSanitizer
 from .models import CustomUser, AuthorProfile, Novel, Chapter, ReadingProgress, Volume # 引入 ReadingProgress 和 Volume
 
 # --- HTML Sanitization Config ---
@@ -39,7 +40,7 @@ def sanitize_html_content(html_content):
         html_content,
         tags=ALLOWED_TAGS,
         attributes=ALLOWED_ATTRIBUTES,
-        css_sanitizer=bleach.css_sanitizer.CSSSanitizer(
+        css_sanitizer=CSSSanitizer(
             allowed_css_properties=ALLOWED_CSS_PROPERTIES,
         ),
         strip=True,

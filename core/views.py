@@ -12,6 +12,8 @@ from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework_simplejwt.views import TokenObtainPairView as OriginalTokenObtainPairView
 from django.http import JsonResponse
 import logging
+import os
+import uuid
 
 # --- Local Imports ---
 from .models import CustomUser, AuthorProfile, Novel, Chapter, ReadingProgress, Volume # 引入 ReadingProgress 和 Volume
@@ -84,7 +86,6 @@ class ImageView(generics.CreateAPIView):
             )
 
         # Sanitize filename: use only the file extension, generate a safe name
-        import uuid
         ext = os.path.splitext(image.name)[1].lower()
         allowed_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.webp'}
         if ext not in allowed_extensions:
