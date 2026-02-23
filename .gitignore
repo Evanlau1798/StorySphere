@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+*.pyo
+.env
+*.sqlite3
+media/
+node_modules/
+frontend/dist/
