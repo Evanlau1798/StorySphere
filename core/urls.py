@@ -14,8 +14,14 @@ from .views import (
     log_frontend_error, # Import the new view
     AdminViewSet,
 )
+from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.views import TokenRefreshView
 from rest_framework_nested import routers
+
+
+class PublicTokenRefreshView(TokenRefreshView):
+    """TokenRefreshView with explicit AllowAny permission (default changed to IsAuthenticated)."""
+    permission_classes = [AllowAny]
 
 router = routers.DefaultRouter()
 router.register(r'novels', NovelViewSet, basename='novel')
@@ -33,7 +39,7 @@ urlpatterns = [
     # 使用者認證
     path('auth/register/', UserRegistrationView.as_view(), name='register'),
     path('auth/token/', MyTokenObtainPairView.as_view(), name='token_obtain_pair'), # Use our custom view
-    path('auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('auth/token/refresh/', PublicTokenRefreshView.as_view(), name='token_refresh'),
     
     # 個人檔案
     path('profile/', UserProfileView.as_view(), name='user-profile'),

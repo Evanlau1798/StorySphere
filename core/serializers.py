@@ -3,7 +3,47 @@ from datetime import timedelta
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
+import bleach
 from .models import CustomUser, AuthorProfile, Novel, Chapter, ReadingProgress, Volume # 引入 ReadingProgress 和 Volume
+
+# --- HTML Sanitization Config ---
+# Allowed tags for rich text content from Tiptap editor
+ALLOWED_TAGS = [
+    'p', 'br', 'strong', 'b', 'em', 'i', 'u', 's', 'del', 'strike',
+    'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+    'ul', 'ol', 'li',
+    'blockquote', 'pre', 'code',
+    'a', 'img', 'hr',
+    'span', 'div', 'mark',
+    'table', 'thead', 'tbody', 'tr', 'th', 'td',
+    'sub', 'sup',
+]
+ALLOWED_ATTRIBUTES = {
+    '*': ['class', 'style', 'data-type'],
+    'a': ['href', 'title', 'target', 'rel'],
+    'img': ['src', 'alt', 'title', 'width', 'height'],
+    'td': ['colspan', 'rowspan'],
+    'th': ['colspan', 'rowspan'],
+}
+ALLOWED_CSS_PROPERTIES = [
+    'color', 'background-color', 'font-size', 'font-weight', 'font-style',
+    'text-align', 'text-decoration', 'margin', 'padding',
+]
+
+
+def sanitize_html_content(html_content):
+    """Sanitize HTML content to prevent XSS while preserving Tiptap formatting."""
+    if not html_content:
+        return html_content
+    return bleach.clean(
+        html_content,
+        tags=ALLOWED_TAGS,
+        attributes=ALLOWED_ATTRIBUTES,
+        css_sanitizer=bleach.css_sanitizer.CSSSanitizer(
+            allowed_css_properties=ALLOWED_CSS_PROPERTIES,
+        ),
+        strip=True,
+    )
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     remember_me = serializers.BooleanField(write_only=True, required=False, default=False)
@@ -14,7 +54,6 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         # Add custom claims
         token['username'] = user.username
         token['role'] = user.role
-        token['test_field'] = 'serializer_test'
         return token
 
     def validate(self, attrs):
@@ -55,7 +94,13 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         if attrs['password'] != attrs['password2']:
-            raise serializers.ValidationError({"password": "Password fields didn't match."})
+            raise serializers.ValidationError({"password": "兩次輸入的密碼不一致。"})
+        # Run Django's built-in password validators for proper feedback
+        from django.contrib.auth.password_validation import validate_password
+        try:
+            validate_password(attrs['password'])
+        except Exception as e:
+            raise serializers.ValidationError({"password": list(e.messages)})
         return attrs
 
     def create(self, validated_data):
@@ -77,6 +122,10 @@ class UserProfileSerializer(serializers.ModelSerializer):
         # 也可以透過 source='author_profile.field' 訪問作者資料
         fields = ['id', 'username', 'email', 'avatar', 'role', 'pen_name', 'bio']
         read_only_fields = ['username', 'email', 'role']
+
+    def validate_bio(self, value):
+        """Sanitize bio HTML content to prevent stored XSS."""
+        return sanitize_html_content(value)
 
     def update(self, instance, validated_data):
         # instance 在這裡是 CustomUser 物件
@@ -273,6 +322,10 @@ class ChapterEditSerializer(serializers.ModelSerializer):
         model = Chapter
         fields = ['id', 'title', 'content', 'order', 'volume', 'status', 'updated_at']
         read_only_fields = ['id', 'order']
+
+    def validate_content(self, value):
+        """Sanitize chapter HTML content to prevent stored XSS."""
+        return sanitize_html_content(value)
 
 
 class SimpleNovelForReadingProgressSerializer(serializers.ModelSerializer):

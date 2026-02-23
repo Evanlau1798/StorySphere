@@ -16,6 +16,7 @@ import logging
 # --- Local Imports ---
 from .models import CustomUser, AuthorProfile, Novel, Chapter, ReadingProgress, Volume # 引入 ReadingProgress 和 Volume
 from .permissions import IsAuthorUserForWrite, IsAuthorOrReadOnly, IsAdminRole
+from .throttles import LoginRateThrottle, RegisterRateThrottle
 from .serializers import (
     UserRegistrationSerializer,
     UserProfileSerializer,     # 用於個人設定頁
@@ -59,7 +60,9 @@ def log_frontend_error(request):
 
 
 class MyTokenObtainPairView(OriginalTokenObtainPairView):
+    permission_classes = [AllowAny]
     serializer_class = CustomTokenObtainPairSerializer
+    throttle_classes = [LoginRateThrottle]
 
 class ImageView(generics.CreateAPIView):
     parser_classes = [MultiPartParser, FormParser]
@@ -108,6 +111,7 @@ class UserRegistrationView(generics.CreateAPIView):
     """
     queryset = CustomUser.objects.all()
     permission_classes = (AllowAny,)
+    throttle_classes = [RegisterRateThrottle]
     serializer_class = UserRegistrationSerializer
 
 
